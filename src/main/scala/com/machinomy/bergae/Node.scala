@@ -23,7 +23,6 @@ class Node(configuration: Configuration) extends Actor with ActorLogging {
   val expirationTimeout = 2000
 
   var upstream: ActorRef = _
-  var height: Long = 0
 
   var afterReceiveTicker: Option[Cancellable] = None
   var afterSendTicker: Option[Cancellable] = None
@@ -32,7 +31,7 @@ class Node(configuration: Configuration) extends Actor with ActorLogging {
   var waiting: Set[Sha256Hash] = Set.empty[Sha256Hash]
   var transactions: Map[Sha256Hash, Signed] = Map.empty[Sha256Hash, Signed]
 
-  var database = new Storage(configuration)
+  var storage = new Storage(configuration)
 
   override def preStart(): Unit = {
     val parameters = Parameters.default
@@ -51,7 +50,7 @@ class Node(configuration: Configuration) extends Actor with ActorLogging {
       broadcast(message)
     case Node.Update(uuid, string) =>
       log.info(s"Sending UPDATE")
-      height += 1
+      height = height + 1
       val message = Messaging.Update(height, uuid, string, waiting)
       waiting = Set.empty[Sha256Hash]
       append(uuid, string)
@@ -142,8 +141,12 @@ class Node(configuration: Configuration) extends Actor with ActorLogging {
   }
 
   def append(uuid: UUID, string: String): Unit = {
-    database.append(uuid, string)
+    storage.append(uuid, string)
   }
+
+  def height: Long = storage.height
+
+  def height_=(value: Long) = storage.height = value
 }
 
 object Node {

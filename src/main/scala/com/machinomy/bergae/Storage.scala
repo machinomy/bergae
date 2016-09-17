@@ -10,4 +10,8 @@ class Storage(configuration: Configuration) {
   def append(uuid: UUID, string: String): Unit = {
     client.rpush(uuid, string)
   }
+
+  def height: Long = client.get("height").map(_.toLong).getOrElse(0)
+
+  def height_=(value: Long) = client.set("height", value)
 }
