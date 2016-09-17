@@ -19,11 +19,11 @@ class Storage(configuration: Configuration) {
   }
 
   def append(uuid: UUID, string: String): Unit = {
-    client.rpush(uuid, string)
+    client.rpush(key(uuid), string)
   }
 
   def get(uuid: UUID): Seq[Operation] = {
-    val operationStrings = client.lrange(uuid, 0, -1).getOrElse(Seq.empty[Option[String]]).flatten
+    val operationStrings = client.lrange(key(uuid), 0, -1).getOrElse(Seq.empty[Option[String]]).flatten
     operationStrings.flatMap { operationString =>
       parser.decode[Operation](operationString).toOption
     }
@@ -36,6 +36,8 @@ class Storage(configuration: Configuration) {
   def height: Long = client.get("height").map(_.toLong).getOrElse(0)
 
   def height_=(value: Long) = client.set("height", value)
+
+  def key(uuid: UUID): String = s"storage:$uuid"
 }
 
 object Storage {
