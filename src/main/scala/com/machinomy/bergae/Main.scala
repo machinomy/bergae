@@ -12,7 +12,8 @@ object Main extends App {
   parse(args) foreach { arguments =>
     val configuration = Configuration load arguments.config
     val system = ActorSystem("bergae")
-    val props = Node props configuration
+    val storage = new Storage(configuration)
+    val props = Node.props(configuration, storage)
     node = system actorOf props
   }
 
