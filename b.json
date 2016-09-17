@@ -14,6 +14,11 @@
       "xicity": "BF1010",
       "pub": "15mT7gZha8pThM1TPaB3pyEAoes7fzgiaWdEwoZK9Ya4dq4HGBK",
       "priv": "5JByz6FUGmLwgfsHNLp7TrGS8eNez3yNbBdzi8jdHF4vnpquc7Z"
+    },
+    {
+      "xicity": "CA1020",
+      "pub": "17Raz6cuDq9ksPvnVsVqqkSCEPab7KuTwUor9BtofsGDP2w8i7j",
+      "priv": "KwFcNLA7XssWQX5KqVymJTU8QgUWHyPPH4NmAZbkxGowcUc5rHth"
     }
   ],
   "redis": {
