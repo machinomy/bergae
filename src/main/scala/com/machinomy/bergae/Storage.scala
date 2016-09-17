@@ -52,6 +52,14 @@ class Storage(configuration: Configuration) {
     client.rpush(uuid, string)
   }
 
+  def get(uuid: UUID): Seq[Opearation] = {
+    Seq.empty
+  }
+
+  def search(params: PersonParameters): UUID = {
+    UUID.randomUUID
+  }
+
   def height: Long = client.get("height").map(_.toLong).getOrElse(0)
 
   def height_=(value: Long) = client.set("height", value)
@@ -65,6 +73,8 @@ object Storage {
   case class AddPayment(amount: Double, date: String) extends Operation
   case class CloseCredit(date: String) extends Operation
   case class MakeCheck(amount: Double, days: Int, percentage: Double, result: Boolean) extends Operation
+
+  case class PersonParameters(firstName: String, lastName: String, passportNumber: Int, passportSeries: Int)
 
   object Operation
 }
