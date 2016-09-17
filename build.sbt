@@ -21,7 +21,8 @@ libraryDependencies ++= Seq(
   "com.github.scopt" %% "scopt" % "3.5.0",
   "org.bouncycastle" % "bcprov-jdk15on" % "1.55",
   "com.typesafe" % "config" % "1.3.0",
-  "net.debasishg" %% "redisclient" % "3.2"
+  "net.debasishg" %% "redisclient" % "3.2",
+  "com.tumblr" %% "colossus" % "0.8.1"
 )
 
 val circeVersion = "0.5.1"

@@ -52,7 +52,7 @@ class Storage(configuration: Configuration) {
     client.rpush(uuid, string)
   }
 
-  def get(uuid: UUID): Seq[Opearation] = {
+  def get(uuid: UUID): Seq[Operation] = {
     Seq.empty
   }
 
@@ -68,13 +68,13 @@ class Storage(configuration: Configuration) {
 object Storage {
   @JsonCodec
   sealed trait Operation
-  case class AddPerson(name: String, lastName: String, surname: String, passportNumber: Int, passportSeries: Int, taxId: String, birthDate: String, birthPlace: String) extends Operation
+  case class AddPerson(firstName: String, lastName: String, birthDate: String, passportHash: String) extends Operation
   case class AddCredit(amount: Double, percentage: Double, currency: String) extends Operation
   case class AddPayment(amount: Double, date: String) extends Operation
   case class CloseCredit(date: String) extends Operation
   case class MakeCheck(amount: Double, days: Int, percentage: Double, result: Boolean) extends Operation
 
-  case class PersonParameters(firstName: String, lastName: String, passportNumber: Int, passportSeries: Int)
+  case class PersonParameters(firstName: String, lastName: String, birthDate: String, passportHash: String)
 
   object Operation
 }
