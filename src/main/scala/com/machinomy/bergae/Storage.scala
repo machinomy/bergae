@@ -14,36 +14,6 @@ class Storage(configuration: Configuration) {
 
   val client = new RedisClient(configuration.redis.host, configuration.redis.port)
 
-  /*def append(uuid: UUID, person: AddPerson): Unit = {
-    val operation: Operation = person
-    val string = operation.asJson.noSpaces
-    append(uuid, string)
-  }
-
-  def append(uuid: UUID, addCredit: AddCredit): Unit = {
-    val operation: Operation = addCredit
-    val string = operation.asJson.noSpaces
-    append(uuid, string)
-  }
-
-  def append(uuid: UUID, addPayment: AddPayment): Unit = {
-    val operation: Operation = addPayment
-    val string = operation.asJson.noSpaces
-    append(uuid, string)
-  }
-
-  def append(uuid: UUID, closeCredit: CloseCredit): Unit = {
-    val operation: Operation = closeCredit
-    val string = operation.asJson.noSpaces
-    append(uuid, string)
-  }
-
-  def append(uuid: UUID, makeCheck: MakeCheck): Unit = {
-    val operation: Operation = makeCheck
-    val string = operation.asJson.noSpaces
-    append(uuid, string)
-  }*/
-
   def append(uuid: UUID, operation: Operation): Unit = {
     append(uuid, operation.asJson.noSpaces)
   }
@@ -53,7 +23,10 @@ class Storage(configuration: Configuration) {
   }
 
   def get(uuid: UUID): Seq[Operation] = {
-    Seq.empty
+    val operationStrings = client.lrange(uuid, 0, -1).getOrElse(Seq.empty[Option[String]]).flatten
+    operationStrings.flatMap { operationString =>
+      parser.decode[Operation](operationString).toOption
+    }
   }
 
   def search(params: PersonParameters): UUID = {

@@ -7,4 +7,7 @@ val storage = new Storage(configuration)
 
 val person = Storage.AddPerson("A", "B", "C", 10, 20, "tax", "2016-09-04", "space")
 
-storage.append(UUID.randomUUID, person)
+val uuid = UUID.randomUUID()
+storage.append(uuid, person)
+val strings = storage.get(uuid)
+
