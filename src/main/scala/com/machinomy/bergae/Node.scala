@@ -15,7 +15,6 @@ import io.circe.parser
 import io.circe.syntax._
 
 import scala.concurrent.duration._
-import scala.util.Random
 
 class Node(configuration: Configuration) extends Actor with ActorLogging {
   import context._
