@@ -1,15 +1,10 @@
-import com.machinomy.bergae.Messaging
-import com.machinomy.bergae.crypto.{ECKey, EllipticCurve}
+import com.machinomy.bergae._
+import java.io.File
+import java.util.UUID
 
-import io.circe._, io.circe.generic.auto._, io.circe.parser._, io.circe.syntax._
+val configuration = Configuration.load(new File("./a.json"))
+val storage = new Storage(configuration)
 
-val key = ECKey()
-val time = 0L
-val txt = time.toString.getBytes
+val person = Storage.Person("A", "B", "C", 10, 20, "tax", "2016-09-04", "space")
 
-val nop = Messaging.Nop(1)
-val message = Messaging.signed(nop, key)
-import Messaging._
-val jsonString = message.asJson.noSpaces
-
-val a = decode[Signed](jsonString)
+storage.append(UUID.randomUUID, person)
