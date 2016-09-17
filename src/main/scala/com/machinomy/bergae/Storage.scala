@@ -23,7 +23,10 @@ class Storage(configuration: Configuration) {
   }
 
   def get(uuid: UUID): Seq[Operation] = {
-    Seq.empty[Operation]
+    val operationStrings = client.lrange(uuid, 0, -1).getOrElse(Seq.empty[Option[String]]).flatten
+    operationStrings.flatMap { operationString =>
+      parser.decode[Operation](operationString).toOption
+    }
   }
 
   def search(params: PersonParameters): UUID = {
