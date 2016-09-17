@@ -9,7 +9,11 @@ import com.typesafe.config.{Config, ConfigFactory}
 
 import scala.collection.JavaConverters._
 
-case class Configuration(me: Configuration.Node, key: ECKey, seeds: Seq[Configuration.Node], redis: RedisConfiguration)
+case class Configuration(me: Configuration.Node,
+                         key: ECKey,
+                         seeds: Seq[Configuration.Node],
+                         redis: RedisConfiguration,
+                         secret: String)
 
 object Configuration {
   case class Node(xicity: Identifier, pub: ECPub)
@@ -36,6 +40,7 @@ object Configuration {
     val redisHost = redis.getString("host")
     val redisPort = redis.getInt("port")
     val redisConfiguration = RedisConfiguration(redisHost, redisPort)
-    Configuration(me, key, seeds, redisConfiguration)
+    val secret = config.getString("secret")
+    Configuration(me, key, seeds, redisConfiguration, secret)
   }
 }
