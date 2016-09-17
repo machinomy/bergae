@@ -16,6 +16,11 @@ class Storage(configuration: Configuration) {
 
   def append(uuid: UUID, operation: Operation): Unit = {
     append(uuid, operation.asJson.noSpaces)
+    operation match {
+      case person: AddPerson =>
+        client.hset("index", SearchParameters(person.firstName, person.lastName, person.passportHash).asJson.noSpaces, uuid)
+      case _ =>
+    }
   }
 
   def append(uuid: UUID, string: String): Unit = {
@@ -29,8 +34,8 @@ class Storage(configuration: Configuration) {
     }
   }
 
-  def search(params: PersonParameters): UUID = {
-    UUID.randomUUID
+  def search(params: SearchParameters): Option[UUID] = {
+    client.hscan("index", 0, params.asJson.noSpaces, 1000000).flatMap(_._2).getOrElse(List.empty[Option[String]]).flatten.lastOption.map(x => UUID.fromString(x))
   }
 
   def height: Long = client.get("height").map(_.toLong).getOrElse(0)
@@ -50,6 +55,7 @@ object Storage {
   case class MakeCheck(amount: Double, days: Int, percentage: Double, result: Boolean) extends Operation
 
   case class PersonParameters(firstName: String, lastName: String, birthDate: String, passportHash: String)
+  case class SearchParameters(firstName: String, lastName: String, passportHash: String)
 
   object Operation
 }

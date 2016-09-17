@@ -16,7 +16,7 @@ import io.circe.generic.auto._
 import io.circe.parser
 import io.circe.syntax._
 import io.circe.jawn.decode
-import Storage.{AddPerson, PersonParameters}
+import Storage.{AddPerson, PersonParameters, SearchParameters}
 import io.circe.generic.JsonCodec
 
 class APIService(context: ServerContext) extends HttpService(context) {
@@ -29,12 +29,16 @@ class APIService(context: ServerContext) extends HttpService(context) {
       Callback.successful(request.ok("Hello world"))
 
     case request @ Post on Root / "persons" / "search" =>
-      val paramsXor: cats.data.Xor[io.circe.Error, PersonParameters] = decode[PersonParameters](request.body.toString())
+      val paramsXor: cats.data.Xor[io.circe.Error, SearchParameters] = decode[SearchParameters](request.body.toString())
       paramsXor match {
         case cats.data.Xor.Left(failure) => Callback.successful(request.badRequest(failure.toString))
         case cats.data.Xor.Right(parameters) =>
-          val uuid = Main.storage.search(parameters)
-          Callback.successful(request.ok(s"""{"uuid": $uuid"""))
+          val uuidOption = Main.storage.search(parameters)
+          uuidOption match {
+            case Some(uuid) => Callback.successful(request.ok(s"""{"uuid": $uuid"""))
+            case None => Callback.successful(request.notFound("Fuck you, pidor"))
+          }
+
       }
 
     case request @ Post on Root / "persons" / "new" =>
