@@ -1,0 +1,24 @@
+{
+  "me": {
+    "xicity": "1000",
+    "pub": "16wkKCxnAHJFNQxsNkhYQBazHaipHBJmt3eeZznYwAziwXFeKW5",
+    "priv": "5JGGCh7v9zVVq8zcpz2Vv8gmvVxBDkD9FphcUzkjpC2fZWg6p6N"
+  },
+  "seeds": [
+    {
+      "xicity": "1000",
+      "pub": "16wkKCxnAHJFNQxsNkhYQBazHaipHBJmt3eeZznYwAziwXFeKW5",
+      "priv": "5JGGCh7v9zVVq8zcpz2Vv8gmvVxBDkD9FphcUzkjpC2fZWg6p6N"
+    },
+    {
+      "xicity": "1010",
+      "pub": "15mT7gZha8pThM1TPaB3pyEAoes7fzgiaWdEwoZK9Ya4dq4HGBK",
+      "priv": "5JByz6FUGmLwgfsHNLp7TrGS8eNez3yNbBdzi8jdHF4vnpquc7Z"
+    },
+    {
+      "xicity": "1020",
+      "pub": "17Raz6cuDq9ksPvnVsVqqkSCEPab7KuTwUor9BtofsGDP2w8i7j",
+      "priv": "KwFcNLA7XssWQX5KqVymJTU8QgUWHyPPH4NmAZbkxGowcUc5rHth"
+    }
+  ]
+}
