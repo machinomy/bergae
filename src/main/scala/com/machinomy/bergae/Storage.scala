@@ -14,7 +14,7 @@ class Storage(configuration: Configuration) {
 
   val client = new RedisClient(configuration.redis.host, configuration.redis.port)
 
-  /*def append(uuid: UUID, person: Person): Unit = {
+  /*def append(uuid: UUID, person: AddPerson): Unit = {
     val operation: Operation = person
     val string = operation.asJson.noSpaces
     append(uuid, string)
@@ -60,7 +60,7 @@ class Storage(configuration: Configuration) {
 object Storage {
   @JsonCodec
   sealed trait Operation
-  case class Person(name: String, lastName: String, surname: String, passportNumber: Int, passportSeries: Int, taxId: String, birthDate: String, birthPlace: String) extends Operation
+  case class AddPerson(name: String, lastName: String, surname: String, passportNumber: Int, passportSeries: Int, taxId: String, birthDate: String, birthPlace: String) extends Operation
   case class AddCredit(amount: Double, percentage: Double, currency: String) extends Operation
   case class AddPayment(amount: Double, date: String) extends Operation
   case class CloseCredit(date: String) extends Operation
