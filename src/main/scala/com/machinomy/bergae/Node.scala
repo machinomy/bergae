@@ -16,7 +16,7 @@ import io.circe.syntax._
 
 import scala.concurrent.duration._
 
-class Node(configuration: Configuration) extends Actor with ActorLogging {
+class Node(configuration: Configuration, storage: Storage) extends Actor with ActorLogging {
   import context._
 
   val expirationTimeout = 2000
@@ -29,8 +29,6 @@ class Node(configuration: Configuration) extends Actor with ActorLogging {
   var accepted: Map[Sha256Hash, Set[ECPub]] = Map.empty[Sha256Hash, Set[ECPub]]
   var waiting: Set[Sha256Hash] = Set.empty[Sha256Hash]
   var transactions: Map[Sha256Hash, Signed] = Map.empty[Sha256Hash, Signed]
-
-  var storage = new Storage(configuration)
 
   override def preStart(): Unit = {
     val parameters = Parameters.default
@@ -149,7 +147,7 @@ class Node(configuration: Configuration) extends Actor with ActorLogging {
 }
 
 object Node {
-  def props(configuration: Configuration) = Props(classOf[Node], configuration)
+  def props(configuration: Configuration, storage: Storage) = Props(classOf[Node], configuration, storage)
 
   sealed trait Msg
   case object Nop extends Msg
