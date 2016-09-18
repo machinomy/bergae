@@ -1,49 +1,85 @@
 package com.machinomy.bergae
 
+import java.awt.print.Book
 import java.util.UUID
 
-import com.redis.RedisClient
+import akka.actor.{ActorContext, ActorRefFactory, ActorSystem}
+import akka.util.ByteString
+import redis.{Cursor, RedisClient}
 import io.circe._
 import io.circe.generic.JsonCodec
 import io.circe.generic.auto._
 import io.circe.parser
 import io.circe.syntax._
 
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration._
 import scala.util.Try
 
-class Storage(configuration: Configuration) {
+class Storage(configuration: Configuration)(implicit actorSystem: ActorSystem) {
   import Storage._
+  import actorSystem._
 
-  val client = new RedisClient(configuration.redis.host, configuration.redis.port)
+  //val client = new RedisClient(configuration.redis.host, configuration.redis.port)
+  val client = RedisClient(configuration.redis.host, configuration.redis.port)
+  val timeout = 5.seconds
 
   def append(uuid: UUID, operation: Operation): Unit = {
-    append(uuid, operation.asJson.noSpaces)
-    operation match {
-      case person: AddPerson =>
-        client.hset("index", SearchParameters(person.firstName, person.lastName, person.passportHash).asJson.noSpaces, uuid)
-      case _ =>
-    }
+    val future: Future[Boolean] =
+      operation match {
+        case person: AddPerson =>
+          val field: String = SearchParameters(person.firstName, person.lastName, person.passportHash).asJson.noSpaces
+          for {
+            _ <- client.hset("index", field, uuid.toString)
+          } yield {
+            append(uuid, operation.asJson.noSpaces)
+            true
+          }
+        case _ =>
+          append(uuid, operation.asJson.noSpaces)
+          Future.successful(true)
+      }
+    Await.ready(future, timeout)
   }
 
   def append(uuid: UUID, string: String): Unit = {
-    client.rpush(key(uuid), string)
+    val r: Future[Long] = client.rpush(key(uuid), string)
+    Await.ready(r, timeout)
   }
 
-  def get(uuid: UUID): Seq[Operation] = {
-    val lrange = Try(client.lrange(key(uuid), 0, -1)).getOrElse(None)
-    val operationStrings = lrange.getOrElse(Seq.empty[Option[String]]).flatten
-    operationStrings.flatMap { operationString =>
-      parser.decode[Operation](operationString).toOption
+  def get(uuid: UUID): Future[Seq[Operation]] = {
+    for {
+      lrange <- client.lrange(key(uuid), 0, -1)
+    } yield {
+      lrange.flatMap { byteString =>
+        parser.decode[Operation](byteString.utf8String).toOption
+      }
     }
   }
 
   def search(params: SearchParameters): Option[UUID] = {
-    client.hscan("index", 0, params.asJson.noSpaces, 1000000).flatMap(_._2).getOrElse(List.empty[Option[String]]).flatten.lastOption.map(x => UUID.fromString(x))
+    val futureOpt =
+      for {
+        cursor <- client.hscan("index", 0, Some(10000000), Some(params.asJson.noSpaces))
+      } yield {
+        cursor.data.values.lastOption.map(x => UUID.fromString(x.toString))
+      }
+    Await.result(futureOpt, timeout)
   }
 
-  def height: Long = Try(client.get("height")).toOption.flatten.flatMap(i => Try(i.toLong).toOption).getOrElse(0)
+  def height: Long = {
+    val futureLong: Future[Long] = client.get("height").map { optString =>
+      val a: Option[Long] = Try(optString.toString.toLong).toOption
+      val b: Long = a.getOrElse(0L)
+      b
+    }
+    Await.result(futureLong, timeout)
+  }
 
-  def height_=(value: Long) = client.set("height", value)
+  def height_=(value: Long): Unit = {
+    val future = client.set("height", value)
+    Await.result(future, timeout)
+  }
 
   def key(uuid: UUID): String = s"storage:$uuid"
 }
