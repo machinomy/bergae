@@ -30,6 +30,8 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
   var waiting: Set[Sha256Hash] = Set.empty[Sha256Hash]
   var transactions: Map[Sha256Hash, Signed] = Map.empty[Sha256Hash, Signed]
 
+  val crypto = new Crypto(configuration)
+
   override def preStart(): Unit = {
     val parameters = Parameters.default
     val upstreamProps = PeerBase.props[FullNode](configuration.me.xicity, self, parameters)
@@ -112,7 +114,7 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
   def broadcast(payload: String): Unit = broadcast(payload.getBytes)
 
   def broadcast(payload: Messaging.Payload): Unit = {
-    val signed = Messaging.signed(payload, configuration.key)
+    val signed = Messaging.signed(crypto, payload, configuration.key)
     accept(signed.txid, configuration.me.pub)
     broadcast(signed.jsonString)
     resetAfterSendTicker()
@@ -139,6 +141,16 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
 
   def append(uuid: UUID, string: String): Unit = {
     storage.append(uuid, string)
+  }
+
+  def ifVerified(signed: Signed)(handle: Signed => Unit): Unit = {
+    val payloadBytes = signed.payload.asJson.noSpaces.getBytes
+    val verified = crypto.verify(payloadBytes, signed.signature, signed.pub)
+    if (verified) {
+      handle(signed)
+    } else {
+      log.error(s"Can not verify $signed")
+    }
   }
 
   def height: Long = storage.height
