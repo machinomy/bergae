@@ -27,7 +27,7 @@
   },
   "http": {
     "name": "api",
-    "port": 9001
+    "port": 9000
   },
   "secret": "3390aef85e537426e37b963cb23e2de6"
 }

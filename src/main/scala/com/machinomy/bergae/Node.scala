@@ -26,8 +26,6 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
   var afterReceiveTicker: Option[Cancellable] = None
   var afterSendTicker: Option[Cancellable] = None
 
-  var waiting: Set[Sha256Hash] = Set.empty[Sha256Hash]
-
   val crypto = new Crypto(configuration)
 
   override def preStart(): Unit = {
@@ -42,14 +40,14 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
       resetAfterReceiveTicker()
     case Node.Nop =>
       log.info(s"Sending Nop...")
-      val message = Messaging.Nop(height, waiting)
-      waiting = Set.empty[Sha256Hash]
+      val message = Messaging.Nop(height, storage.waiting())
+      storage.resetWaiting()
       broadcast(message)
     case Node.Update(uuid, operation) =>
       log.info(s"Sending UPDATE")
       height = height + 1
-      val message = Messaging.Update(height, uuid, operation, waiting)
-      waiting = Set.empty[Sha256Hash]
+      val message = Messaging.Update(height, uuid, operation, storage.waiting())
+      storage.resetWaiting()
       append(uuid, operation)
       broadcast(message)
     case Peer.Received(message: Message.Single) =>
@@ -67,19 +65,19 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
               accept(signed.txid, configuration.me.pub)
               for (txid <- approve) {
                 if (storage.accepted(txid).contains(configuration.me.pub) && storage.accepted(txid).size == 1) {
-                  waiting = waiting + txid
+                  storage.addWaiting(txid)
                 }
                 accept(txid, signed.pub)
               }
-              waiting = waiting + signed.txid
+              storage.addWaiting(signed.txid)
               log.info(s"Reached someone")
               if (i >= height) {
                 height = i + 1
                 log.info(s"Setting height to $height, as $i was received")
               } else {
                 log.info(s"Sending height $height as a response to Nop")
-                broadcast(Messaging.Nop(height, waiting + signed.txid))
-                waiting = Set.empty[Sha256Hash]
+                broadcast(Messaging.Nop(height, storage.waiting() + signed.txid))
+                storage.resetWaiting()
               }
             case msg @ Messaging.Update(time, uuid, operation, approve) =>
               if (time >= height) {
@@ -90,11 +88,11 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
               mapOperation(operation, signed.txid)
               for (txid <- approve) {
                 if (storage.accepted(txid).contains(configuration.me.pub) && storage.accepted(txid).size == 1) {
-                  waiting = waiting + txid
+                  storage.resetWaiting()
                 }
                 accept(txid, signed.pub)
               }
-              waiting = waiting + signed.txid
+              storage.addWaiting(signed.txid)
               log.info(s"Got update: $uuid: $operation")
               append(uuid, operation)
           }

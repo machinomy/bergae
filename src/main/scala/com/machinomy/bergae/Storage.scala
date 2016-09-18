@@ -82,6 +82,40 @@ class Storage(configuration: Configuration)(implicit actorSystem: ActorSystem) {
     Await.result(future, timeout)
   }
 
+  def addWaiting(hash: Sha256Hash): Unit = {
+    val bytes = hash.toByteArray
+    val hexEncoded: String = Hex.encode(bytes)
+    val a = client.sadd("waiting", hexEncoded)
+    Await.result(a, timeout)
+  }
+
+  def addWaiting(hashes: Seq[Sha256Hash]): Unit = {
+    for (h <- hashes) addWaiting(h)
+  }
+
+  def resetWaiting(): Unit = {
+    val future =
+      for {
+        members <- client.smembers("waiting")
+        a <- client.srem("waiting", members)
+      } yield a
+    Await.ready(future, timeout)
+  }
+
+  def waiting(): Set[Sha256Hash] = {
+    val future =
+      for {
+        members <- client.smembers("waiting")
+      } yield {
+        members.map { byteString =>
+          val string = byteString.utf8String
+          val bytes = Hex.decode(string)
+          Sha256Hash(bytes.toArray)
+        }
+      }
+    Await.result(future, timeout).toSet
+  }
+
   def accepted(txid: Sha256Hash): Set[ECPub] = {
     val key = acceptKey(txid)
     val future =
