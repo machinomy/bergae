@@ -96,8 +96,7 @@ class Storage(configuration: Configuration)(implicit actorSystem: ActorSystem) {
   def resetWaiting(): Unit = {
     val future =
       for {
-        members <- client.smembers("waiting")
-        a <- client.srem("waiting", members.map(_.utf8String))
+        a <- client.del("index")
       } yield a
     Await.ready(future, timeout)
   }
