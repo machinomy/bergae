@@ -143,6 +143,16 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
     storage.append(uuid, string)
   }
 
+  def ifVerified(signed: Signed)(handle: Signed => Unit): Unit = {
+    val payloadBytes = signed.payload.asJson.noSpaces.getBytes
+    val verified = crypto.verify(payloadBytes, signed.signature, signed.pub)
+    if (verified) {
+      handle(signed)
+    } else {
+      log.error(s"Can not verify $signed")
+    }
+  }
+
   def height: Long = storage.height
 
   def height_=(value: Long) = storage.height = value
