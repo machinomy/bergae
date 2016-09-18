@@ -1,48 +1,141 @@
 package com.machinomy.bergae
 
+import java.awt.print.Book
 import java.util.UUID
 
-import com.redis.RedisClient
+import akka.actor.{ActorContext, ActorRefFactory, ActorSystem}
+import akka.util.ByteString
+import com.machinomy.bergae.crypto.{ECPub, Hex, Sha256Hash}
+import redis.{Cursor, RedisClient}
 import io.circe._
 import io.circe.generic.JsonCodec
 import io.circe.generic.auto._
 import io.circe.parser
 import io.circe.syntax._
 
-class Storage(configuration: Configuration) {
-  import Storage._
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration._
+import scala.util.Try
 
-  val client = new RedisClient(configuration.redis.host, configuration.redis.port)
+class Storage(configuration: Configuration)(implicit actorSystem: ActorSystem) {
+  import Storage._
+  import actorSystem._
+
+  //val client = new RedisClient(configuration.redis.host, configuration.redis.port)
+  val client = RedisClient(configuration.redis.host, configuration.redis.port)
+  val timeout = 5.seconds
 
   def append(uuid: UUID, operation: Operation): Unit = {
-    append(uuid, operation.asJson.noSpaces)
-    operation match {
-      case person: AddPerson =>
-        client.hset("index", SearchParameters(person.firstName, person.lastName, person.passportHash).asJson.noSpaces, uuid)
-      case _ =>
-    }
+    val future: Future[Boolean] =
+      operation match {
+        case person: AddPerson =>
+          val field: String = SearchParameters(person.firstName, person.lastName, person.passportHash).asJson.noSpaces
+          for {
+            _ <- client.hset("index", field, ByteString.fromString(uuid.toString))
+          } yield {
+            append(uuid, operation.asJson.noSpaces)
+            true
+          }
+        case _ =>
+          append(uuid, operation.asJson.noSpaces)
+          Future.successful(true)
+      }
+    Await.ready(future, timeout)
   }
 
   def append(uuid: UUID, string: String): Unit = {
-    client.rpush(key(uuid), string)
+    val r: Future[Long] = client.rpush(storageKey(uuid), string)
+    Await.ready(r, timeout)
   }
 
-  def get(uuid: UUID): Seq[Operation] = {
-    val operationStrings = client.lrange(key(uuid), 0, -1).getOrElse(Seq.empty[Option[String]]).flatten
-    operationStrings.flatMap { operationString =>
-      parser.decode[Operation](operationString).toOption
+  def get(uuid: UUID): Future[Seq[Operation]] = {
+    for {
+      lrange <- client.lrange(storageKey(uuid), 0, -1)
+    } yield {
+      lrange.flatMap { byteString =>
+        parser.decode[Operation](byteString.utf8String).toOption
+      }
     }
   }
 
   def search(params: SearchParameters): Option[UUID] = {
-    client.hscan("index", 0, params.asJson.noSpaces, 1000000).flatMap(_._2).getOrElse(List.empty[Option[String]]).flatten.lastOption.map(x => UUID.fromString(x))
+    val futureOpt =
+      for {
+        cursor <- client.hscan("index", 0, Some(10000000), Some(params.asJson.noSpaces))
+      } yield {
+        cursor.data.values.lastOption.map(x => UUID.fromString(x.utf8String))
+      }
+    Await.result(futureOpt, timeout)
   }
 
-  def height: Long = client.get("height").map(_.toLong).getOrElse(0)
+  def height: Long = {
+    val futureLong: Future[Long] = client.get("height").map { (optString: Option[ByteString]) =>
+      val a: Option[Long] = Try(optString.map(_.utf8String.toLong)).toOption.flatten
+      val b: Long = a.getOrElse(0L)
+      b
+    }
+    Await.result(futureLong, timeout)
+  }
 
-  def height_=(value: Long) = client.set("height", value)
+  def height_=(value: Long): Unit = {
+    val future = client.set("height", value)
+    Await.result(future, timeout)
+  }
 
-  def key(uuid: UUID): String = s"storage:$uuid"
+  def accepted(hash: Sha256Hash): Set[ECPub] = {
+    val key = acceptKey(hash)
+    val future =
+      for {
+        members <- client.smembers(key)
+      } yield {
+        members.map { byteString =>
+          ECPub.apply(byteString.toArray)
+        }
+      }
+    Await.result(future, timeout).toSet
+  }
+
+  def accept(hash: Sha256Hash, pub: ECPub): Unit = {
+    val key = acceptKey(hash)
+    val hexEncoded: String = Hex.encode(pub.toByteArray)
+    val a = client.sadd(key, hexEncoded)
+    Await.ready(a, timeout)
+  }
+
+  def acceptKey(hash: Sha256Hash): String = {
+    val hashString = Hex.encode(hash.bytes)
+    s"accepted:$hashString"
+  }
+
+  def mapOperation(payloadId: Sha256Hash, txid: Sha256Hash): Unit = {
+    val hex = Hex.encode(payloadId.bytes)
+    val key = s"mapPayload:$hex"
+    val txidString = Hex.encode(txid.bytes)
+    val f = client.set(key, txidString)
+    Await.ready(f, timeout)
+  }
+
+  def approvals(payloadId: Sha256Hash): Int = {
+    val hex = Hex.encode(payloadId.bytes)
+    val key = s"mapPayload:$hex"
+    val future =
+      for {
+        txidOpt <- client.get(key)
+      } yield {
+        txidOpt match {
+          case Some(txidBS) =>
+            val txid = txidBS.utf8String
+            val unhex: Seq[Byte] = Hex.decode(txid)
+            val sha256Hash = Sha256Hash(unhex.toArray)
+            accepted(sha256Hash).size
+          case None => 0
+        }
+      }
+    Await.result(future, timeout)
+  }
+
+
+  def storageKey(uuid: UUID): String = s"storage:$uuid"
 }
 
 object Storage {

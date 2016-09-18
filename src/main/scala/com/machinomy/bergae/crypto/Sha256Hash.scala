@@ -5,6 +5,8 @@ import org.bouncycastle.crypto.digests.SHA256Digest
 
 case class Sha256Hash(bytes: Array[Byte]) {
   assert(bytes.length == 32)
+
+  def toByteArray: Array[Byte] = bytes
 }
 
 object Sha256Hash {

@@ -17,6 +17,8 @@ import io.circe.generic.auto._
 import io.circe.parser._
 import io.circe.syntax._
 
+import scala.concurrent.{ExecutionContext, Future}
+
 object Answers {
   @JsonCodec
   sealed trait Answer
@@ -27,7 +29,7 @@ object Answers {
   object Answer
 }
 
-class APIService(context: ServerContext) extends HttpService(context) {
+class APIService(context: ServerContext, node: ActorRef)(implicit ec: ExecutionContext) extends HttpService(context) {
 
   case class GettingParameters(uuid: String)
 
@@ -37,7 +39,7 @@ class APIService(context: ServerContext) extends HttpService(context) {
   case class CloseCreditParameters(uuid: String, closeCredit: CloseCredit)
   case class NewPaymentsParameters(uuid: String, payment: AddPayment)
 
-  def handle = {
+  def handle: PartialFunction[HttpRequest, Callback[HttpResponse]] = {
     case request @ Get on Root =>
       println(request)
       Callback.successful(request.ok("Hello world"))
@@ -61,22 +63,29 @@ class APIService(context: ServerContext) extends HttpService(context) {
         case cats.data.Xor.Left(failure) => Callback.successful(request.badRequest(failure.toString))
         case cats.data.Xor.Right(params) =>
           val newUUID = UUID.randomUUID()
-          Main.storage.append(newUUID, AddPerson(params.firstName, params.lastName, params.birthDate, params.passportHash))
+          val operation = AddPerson(params.firstName, params.lastName, params.birthDate, params.passportHash)
+          node ! Node.Update(newUUID, operation)
           Callback.successful(request.ok(s"""{"uuid":"$newUUID"}"""))
       }
 
     case request @ Post on Root / "persons" / "get" =>
       val paramsXor: cats.data.Xor[io.circe.Error, GettingParameters] = decode[GettingParameters](request.body.toString())
-      paramsXor match {
-        case cats.data.Xor.Left(failure) => Callback.successful(request.badRequest(failure.toString))
-        case cats.data.Xor.Right(params) =>
-          val operations = Main.storage.get(UUID.fromString(params.uuid))
-          val personOperationOption = operations.find(x => x.isInstanceOf[AddPerson])
-          personOperationOption match {
-            case Some(person) => Callback.successful(request.ok(person.asJson.noSpaces))
-            case None => Callback.successful(request.notFound(s"""${params.uuid} not found"""))
-          }
-      }
+      val future =
+        paramsXor match {
+          case cats.data.Xor.Left(failure) =>
+            Future.successful(request.badRequest(failure.toString))
+          case cats.data.Xor.Right(params) =>
+            for {
+              operations <- Main.storage.get(UUID.fromString(params.uuid))
+            } yield {
+              val personOperationOption = operations.find(x => x.isInstanceOf[AddPerson])
+              personOperationOption match {
+                case Some(person) => request.ok(person.asJson.noSpaces)
+                case None => request.notFound(s"""${params.uuid} not found""")
+              }
+            }
+        }
+      Callback.fromFuture(future)
 
     case request @ Post on Root / "credits" / "new" =>
       val paramsXor: cats.data.Xor[Error, NewCreditParameters] = decode[NewCreditParameters](request.body.toString())
@@ -85,7 +94,7 @@ class APIService(context: ServerContext) extends HttpService(context) {
         case cats.data.Xor.Right(params) =>
           val newUUID = UUID.randomUUID()
           val addCreditOperation = AddCredit(params.credit.amount, params.credit.percentage, params.credit.time, params.credit.date, newUUID.toString)
-          Main.storage.append(UUID.fromString(params.uuid), addCreditOperation)
+          node ! Node.Update(newUUID, addCreditOperation)
           Callback.successful(request.ok(s"""{"creditUUID":"$newUUID"}"""))
       }
 
@@ -95,41 +104,13 @@ class APIService(context: ServerContext) extends HttpService(context) {
         case cats.data.Xor.Left(failure) => Callback.successful(request.badRequest(failure.toString))
         case cats.data.Xor.Right(params) =>
           val answer = Answers.CreditHistory(UUID.fromString(params.uuid), Array.empty[Answers.Credit])
-          val operations = Main.storage.get(UUID.fromString(params.uuid))
-
-          def generateStructure(operations: Seq[Operation], accumulator: Answers.CreditHistory): Answers.CreditHistory = {
-            operations.headOption match {
-              case Some(op) =>
-                op match {
-                  case addCredit: AddCredit =>
-                    val credit = Answers.Credit(addCredit.amount, addCredit.percentage, addCredit.time, addCredit.date, addCredit.uuid, Array.empty[Answers.Payment], "opened")
-                    val nextCredits = accumulator.credits :+ credit
-                    val next = accumulator.copy(credits = nextCredits)
-                    generateStructure(operations.tail, next)
-                  case addPayment: AddPayment =>
-                    val payment = Answers.Payment(addPayment.amount, addPayment.date, addPayment.creditUUID.toString)
-                    val nextCredits = accumulator.credits.map {
-                      case credit if credit.uuid == payment.creditUUID =>
-                        credit.copy(payments = credit.payments :+ payment)
-                      case credit => credit
-                    }
-                    val next = accumulator.copy(credits = nextCredits)
-                    generateStructure(operations.tail, next)
-                  case closeCredit: CloseCredit =>
-                    val nextCredits = accumulator.credits.map {
-                      case credit if credit.uuid == closeCredit.creditUUID =>
-                        credit.copy(status = "closed", closeDate = Some(closeCredit.date))
-                      case credit => credit
-                    }
-                    val next = accumulator.copy(credits = nextCredits)
-                    generateStructure(operations.tail, next)
-                  case _ => generateStructure(operations.tail, accumulator)
-                }
-              case None => accumulator
+          val future =
+            for {
+              operations <- Main.storage.get(UUID.fromString(params.uuid))
+            } yield {
+              request.ok(generateStructure(operations, answer).asJson.noSpaces)
             }
-          }
-
-          Callback.successful(request.ok(generateStructure(operations, answer).asJson.noSpaces))
+          Callback.fromFuture(future)
       }
 
     case request @ Post on Root / "credits" / "yabyrga" =>
@@ -137,7 +118,9 @@ class APIService(context: ServerContext) extends HttpService(context) {
       paramsXor match {
         case cats.data.Xor.Left(failure) => Callback.successful(request.badRequest(failure.toString))
         case cats.data.Xor.Right(params) =>
-          Main.storage.append(UUID.fromString(params.uuid), params.closeCredit)
+          val operation = params.closeCredit
+          val uuid = UUID.fromString(params.uuid)
+          node ! Node.Update(uuid, operation)
           Callback.successful(request.ok("""{"ok":"status"}"""))
       }
 
@@ -146,14 +129,48 @@ class APIService(context: ServerContext) extends HttpService(context) {
       paramsXor match {
         case cats.data.Xor.Left(failure) => Callback.successful(request.badRequest(failure.toString))
         case cats.data.Xor.Right(params) =>
-          Main.storage.append(UUID.fromString(params.uuid), params.payment)
+          val operation = params.payment
+          val uuid = UUID.fromString(params.uuid)
+          node ! Node.Update(uuid, operation)
           Callback.successful(request.ok("""{"vsyo": ["ochen", "horosho"]}"""))
       }
   }
+
+  def generateStructure(operations: Seq[Operation], accumulator: Answers.CreditHistory): Answers.CreditHistory = {
+    operations.headOption match {
+      case Some(op) =>
+        op match {
+          case addCredit: AddCredit =>
+            val credit = Answers.Credit(addCredit.amount, addCredit.percentage, addCredit.time, addCredit.date, addCredit.uuid, Array.empty[Answers.Payment], "opened")
+            val nextCredits = accumulator.credits :+ credit
+            val next = accumulator.copy(credits = nextCredits)
+            generateStructure(operations.tail, next)
+          case addPayment: AddPayment =>
+            val payment = Answers.Payment(addPayment.amount, addPayment.date, addPayment.creditUUID.toString)
+            val nextCredits = accumulator.credits.map {
+              case credit if credit.uuid == payment.creditUUID =>
+                credit.copy(payments = credit.payments :+ payment)
+              case credit => credit
+            }
+            val next = accumulator.copy(credits = nextCredits)
+            generateStructure(operations.tail, next)
+          case closeCredit: CloseCredit =>
+            val nextCredits = accumulator.credits.map {
+              case credit if credit.uuid == closeCredit.creditUUID =>
+                credit.copy(status = "closed", closeDate = Some(closeCredit.date))
+              case credit => credit
+            }
+            val next = accumulator.copy(credits = nextCredits)
+            generateStructure(operations.tail, next)
+          case _ => generateStructure(operations.tail, accumulator)
+        }
+      case None => accumulator
+    }
+  }
 }
 
-class APIInitializer(worker: WorkerRef) extends Initializer(worker) {
-  def onConnect = context => new APIService(context)
+class APIInitializer(worker: WorkerRef, node: ActorRef)(implicit ec: ExecutionContext) extends Initializer(worker) {
+  def onConnect = context => new APIService(context, node)
 }
 
 object Main extends App {
@@ -177,7 +194,7 @@ object Main extends App {
   configuration.httpOpt.foreach { httpConfiguration =>
     implicit val io = colossus.IOSystem()
     Server.start(httpConfiguration.name, httpConfiguration.port) {
-      worker => new APIInitializer(worker)
+      worker => new APIInitializer(worker, node)(system.dispatcher)
     }
   }
 
