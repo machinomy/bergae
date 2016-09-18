@@ -26,7 +26,6 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
   var afterReceiveTicker: Option[Cancellable] = None
   var afterSendTicker: Option[Cancellable] = None
 
-  var accepted: Map[Sha256Hash, Set[ECPub]] = Map.empty[Sha256Hash, Set[ECPub]]
   var waiting: Set[Sha256Hash] = Set.empty[Sha256Hash]
   var transactions: Map[Sha256Hash, Signed] = Map.empty[Sha256Hash, Signed]
 
@@ -135,8 +134,7 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
   }
 
   def accept(txid: Sha256Hash, pub: ECPub): Unit = {
-    val nextAccepted: Set[ECPub] = accepted.getOrElse(txid, Set.empty[ECPub]) + pub
-    accepted = accepted.updated(txid, nextAccepted)
+    storage.accept(txid, pub)
   }
 
   def append(uuid: UUID, string: String): Unit = {

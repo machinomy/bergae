@@ -5,6 +5,7 @@ import java.util.UUID
 
 import akka.actor.{ActorContext, ActorRefFactory, ActorSystem}
 import akka.util.ByteString
+import com.machinomy.bergae.crypto.{ECPub, Hex, Sha256Hash}
 import redis.{Cursor, RedisClient}
 import io.circe._
 import io.circe.generic.JsonCodec
@@ -43,13 +44,13 @@ class Storage(configuration: Configuration)(implicit actorSystem: ActorSystem) {
   }
 
   def append(uuid: UUID, string: String): Unit = {
-    val r: Future[Long] = client.rpush(key(uuid), string)
+    val r: Future[Long] = client.rpush(storageKey(uuid), string)
     Await.ready(r, timeout)
   }
 
   def get(uuid: UUID): Future[Seq[Operation]] = {
     for {
-      lrange <- client.lrange(key(uuid), 0, -1)
+      lrange <- client.lrange(storageKey(uuid), 0, -1)
     } yield {
       lrange.flatMap { byteString =>
         parser.decode[Operation](byteString.utf8String).toOption
@@ -81,7 +82,32 @@ class Storage(configuration: Configuration)(implicit actorSystem: ActorSystem) {
     Await.result(future, timeout)
   }
 
-  def key(uuid: UUID): String = s"storage:$uuid"
+  def accepted(hash: Sha256Hash): Set[ECPub] = {
+    val key = acceptKey(hash)
+    val future =
+      for {
+        members <- client.smembers(key)
+      } yield {
+        members.map { byteString =>
+          ECPub.apply(byteString.toArray)
+        }
+      }
+    Await.result(future, timeout).toSet
+  }
+
+  def accept(hash: Sha256Hash, pub: ECPub): Unit = {
+    val key = acceptKey(hash)
+    val hexEncoded: String = Hex.encode(pub.toByteArray)
+    val a = client.sadd(key, hexEncoded)
+    Await.ready(a, timeout)
+  }
+
+  def acceptKey(hash: Sha256Hash): String = {
+    val hashString = Hex.encode(hash.bytes)
+    s"accepted:$hashString"
+  }
+
+  def storageKey(uuid: UUID): String = s"storage:$uuid"
 }
 
 object Storage {
