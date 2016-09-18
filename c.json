@@ -1,19 +1,24 @@
 {
   "me": {
-    "xicity": "BF1010",
+    "xicity": "C0BF1010",
     "pub": "15mT7gZha8pThM1TPaB3pyEAoes7fzgiaWdEwoZK9Ya4dq4HGBK",
     "priv": "5JByz6FUGmLwgfsHNLp7TrGS8eNez3yNbBdzi8jdHF4vnpquc7Z"
   },
   "seeds": [
     {
-    "xicity": "1000AF",
-    "pub": "16wkKCxnAHJFNQxsNkhYQBazHaipHBJmt3eeZznYwAziwXFeKW5",
-    "priv": "5JGGCh7v9zVVq8zcpz2Vv8gmvVxBDkD9FphcUzkjpC2fZWg6p6N"
+      "xicity": "A01000AF",
+      "pub": "17incLAA8R9h3C6x5ijkxBgYP7F4Whk9BXZJPdsSsetq61FnRuc",
+      "priv": "KwFR1y45VP6XAAA8pes5ZaS3sN4Cc1wY9zqCumYfEXUvtKvKCo4T"
     },
     {
-    "xicity": "BF1010",
-    "pub": "15mT7gZha8pThM1TPaB3pyEAoes7fzgiaWdEwoZK9Ya4dq4HGBK",
-    "priv": "5JByz6FUGmLwgfsHNLp7TrGS8eNez3yNbBdzi8jdHF4vnpquc7Z"
+      "xicity": "B01000AF",
+      "pub": "16wkKCxnAHJFNQxsNkhYQBazHaipHBJmt3eeZznYwAziwXFeKW5",
+      "priv": "5JGGCh7v9zVVq8zcpz2Vv8gmvVxBDkD9FphcUzkjpC2fZWg6p6N"
+    },
+    {
+      "xicity": "C0BF1010",
+      "pub": "15mT7gZha8pThM1TPaB3pyEAoes7fzgiaWdEwoZK9Ya4dq4HGBK",
+      "priv": "5JByz6FUGmLwgfsHNLp7TrGS8eNez3yNbBdzi8jdHF4vnpquc7Z"
     }
   ],
   "redis": {
@@ -22,7 +27,7 @@
   },
   "http": {
     "name": "api",
-    "port": 9000
+    "port": 9001
   },
   "secret": "3390aef85e537426e37b963cb23e2de6"
 }

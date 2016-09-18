@@ -2,15 +2,12 @@ import com.machinomy.bergae._
 import java.io.File
 import java.util.UUID
 
-import akka.actor.ActorSystem
+import com.machinomy.bergae.crypto.{Base58Check, ECKey}
 
-implicit val actorSystem = ActorSystem("foo")
-val configuration = Configuration.load(new File("./a.json"))
-val storage = new Storage(configuration)
+val key = ECKey()
+val pub = key.pub
+val priv = key.priv
 
-val person = Storage.AddPerson("A", "B", "C", "tax")
+Base58Check.encode(Base58Check.Prefix.PublicKey, pub.toByteArray)
 
-val uuid = UUID.randomUUID()
-storage.append(uuid, person)
-val strings = storage.get(uuid)
-
+Base58Check.encode(Base58Check.Prefix.PrivateKey, priv.toByteArray)
