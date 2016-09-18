@@ -27,7 +27,6 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
   var afterSendTicker: Option[Cancellable] = None
 
   var waiting: Set[Sha256Hash] = Set.empty[Sha256Hash]
-  var transactions: Map[Sha256Hash, Signed] = Map.empty[Sha256Hash, Signed]
 
   val crypto = new Crypto(configuration)
 
