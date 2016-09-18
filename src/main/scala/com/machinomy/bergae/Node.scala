@@ -47,12 +47,12 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
       val message = Messaging.Nop(height, waiting)
       waiting = Set.empty[Sha256Hash]
       broadcast(message)
-    case Node.Update(uuid, string) =>
+    case Node.Update(uuid, operation) =>
       log.info(s"Sending UPDATE")
       height = height + 1
-      val message = Messaging.Update(height, uuid, string, waiting)
+      val message = Messaging.Update(height, uuid, operation, waiting)
       waiting = Set.empty[Sha256Hash]
-      append(uuid, string)
+      append(uuid, operation)
       broadcast(message)
     case Peer.Received(message: Message.Single) =>
       log.info(s"RECEIVED SINGLE: $message")
@@ -77,7 +77,7 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
                 log.info(s"Sending height $height as a response to Nop")
                 broadcast(Messaging.Nop(height, Set(signed.txid)))
               }
-            case msg @ Messaging.Update(time, uuid, string, approve) =>
+            case msg @ Messaging.Update(time, uuid, operation, approve) =>
               if (time >= height) {
                 height = time + 1
               }
@@ -85,8 +85,8 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
               accept(signed.txid, configuration.me.pub) // @fixme
               for (txid <- approve) accept(txid, signed.pub)
               waiting = waiting + signed.txid
-              log.info(s"Got update: $uuid: $string")
-              append(uuid, string)
+              log.info(s"Got update: $uuid: $operation")
+              append(uuid, operation)
           }
       }
     case something =>
@@ -143,6 +143,11 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
     storage.append(uuid, string)
   }
 
+  def append(uuid: UUID, operation: Storage.Operation): Unit = {
+    val string = operation.asJson.noSpaces
+    append(uuid, string)
+  }
+
   def ifVerified(signed: Signed)(handle: Signed => Unit): Unit = {
     val payloadBytes = signed.payload.asJson.noSpaces.getBytes
     val verified = crypto.verify(payloadBytes, signed.signature, signed.pub)
@@ -163,5 +168,5 @@ object Node {
 
   sealed trait Msg
   case object Nop extends Msg
-  case class Update(uuid: UUID, string: String) extends Msg
+  case class Update(uuid: UUID, operation: Storage.Operation) extends Msg
 }

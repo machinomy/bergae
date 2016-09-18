@@ -29,7 +29,7 @@ object Answers {
   object Answer
 }
 
-class APIService(context: ServerContext)(implicit ec: ExecutionContext) extends HttpService(context) {
+class APIService(context: ServerContext, node: ActorRef)(implicit ec: ExecutionContext) extends HttpService(context) {
 
   case class GettingParameters(uuid: String)
 
@@ -63,7 +63,8 @@ class APIService(context: ServerContext)(implicit ec: ExecutionContext) extends 
         case cats.data.Xor.Left(failure) => Callback.successful(request.badRequest(failure.toString))
         case cats.data.Xor.Right(params) =>
           val newUUID = UUID.randomUUID()
-          Main.storage.append(newUUID, AddPerson(params.firstName, params.lastName, params.birthDate, params.passportHash))
+          val operation = AddPerson(params.firstName, params.lastName, params.birthDate, params.passportHash)
+          node ! Node.Update(newUUID, operation)
           Callback.successful(request.ok(s"""{"uuid":"$newUUID"}"""))
       }
 
@@ -93,7 +94,7 @@ class APIService(context: ServerContext)(implicit ec: ExecutionContext) extends 
         case cats.data.Xor.Right(params) =>
           val newUUID = UUID.randomUUID()
           val addCreditOperation = AddCredit(params.credit.amount, params.credit.percentage, params.credit.time, params.credit.date, newUUID.toString)
-          Main.storage.append(UUID.fromString(params.uuid), addCreditOperation)
+          node ! Node.Update(newUUID, addCreditOperation)
           Callback.successful(request.ok(s"""{"creditUUID":"$newUUID"}"""))
       }
 
@@ -117,7 +118,9 @@ class APIService(context: ServerContext)(implicit ec: ExecutionContext) extends 
       paramsXor match {
         case cats.data.Xor.Left(failure) => Callback.successful(request.badRequest(failure.toString))
         case cats.data.Xor.Right(params) =>
-          Main.storage.append(UUID.fromString(params.uuid), params.closeCredit)
+          val operation = params.closeCredit
+          val uuid = UUID.fromString(params.uuid)
+          node ! Node.Update(uuid, operation)
           Callback.successful(request.ok("""{"ok":"status"}"""))
       }
 
@@ -126,7 +129,9 @@ class APIService(context: ServerContext)(implicit ec: ExecutionContext) extends 
       paramsXor match {
         case cats.data.Xor.Left(failure) => Callback.successful(request.badRequest(failure.toString))
         case cats.data.Xor.Right(params) =>
-          Main.storage.append(UUID.fromString(params.uuid), params.payment)
+          val operation = params.payment
+          val uuid = UUID.fromString(params.uuid)
+          node ! Node.Update(uuid, operation)
           Callback.successful(request.ok("""{"vsyo": ["ochen", "horosho"]}"""))
       }
   }
@@ -164,8 +169,8 @@ class APIService(context: ServerContext)(implicit ec: ExecutionContext) extends 
   }
 }
 
-class APIInitializer(worker: WorkerRef)(implicit ec: ExecutionContext) extends Initializer(worker) {
-  def onConnect = context => new APIService(context)
+class APIInitializer(worker: WorkerRef, node: ActorRef)(implicit ec: ExecutionContext) extends Initializer(worker) {
+  def onConnect = context => new APIService(context, node)
 }
 
 object Main extends App {
@@ -189,7 +194,7 @@ object Main extends App {
   configuration.httpOpt.foreach { httpConfiguration =>
     implicit val io = colossus.IOSystem()
     Server.start(httpConfiguration.name, httpConfiguration.port) {
-      worker => new APIInitializer(worker)(system.dispatcher)
+      worker => new APIInitializer(worker, node)(system.dispatcher)
     }
   }
 
