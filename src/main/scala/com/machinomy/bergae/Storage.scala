@@ -9,6 +9,8 @@ import io.circe.generic.auto._
 import io.circe.parser
 import io.circe.syntax._
 
+import scala.util.Try
+
 class Storage(configuration: Configuration) {
   import Storage._
 
@@ -28,7 +30,8 @@ class Storage(configuration: Configuration) {
   }
 
   def get(uuid: UUID): Seq[Operation] = {
-    val operationStrings = client.lrange(key(uuid), 0, -1).getOrElse(Seq.empty[Option[String]]).flatten
+    val lrange = Try(client.lrange(key(uuid), 0, -1)).getOrElse(None)
+    val operationStrings = lrange.getOrElse(Seq.empty[Option[String]]).flatten
     operationStrings.flatMap { operationString =>
       parser.decode[Operation](operationString).toOption
     }
@@ -38,7 +41,7 @@ class Storage(configuration: Configuration) {
     client.hscan("index", 0, params.asJson.noSpaces, 1000000).flatMap(_._2).getOrElse(List.empty[Option[String]]).flatten.lastOption.map(x => UUID.fromString(x))
   }
 
-  def height: Long = client.get("height").map(_.toLong).getOrElse(0)
+  def height: Long = Try(client.get("height")).toOption.flatten.flatMap(i => Try(i.toLong).toOption).getOrElse(0)
 
   def height_=(value: Long) = client.set("height", value)
 
