@@ -49,9 +49,11 @@ object Storage {
   @JsonCodec
   sealed trait Operation
   case class AddPerson(firstName: String, lastName: String, birthDate: String, passportHash: String) extends Operation
-  case class AddCredit(amount: Double, percentage: Double, currency: String) extends Operation
-  case class AddPayment(amount: Double, date: String) extends Operation
-  case class CloseCredit(date: String) extends Operation
+
+  case class AddCredit(amount: Double, percentage: Double, time: String, date: String, uuid: String) extends Operation
+  case class AddPayment(amount: Double, date: String, creditUUID: UUID) extends Operation
+  case class CloseCredit(date: String, creditUUID: String) extends Operation
+
   case class MakeCheck(amount: Double, days: Int, percentage: Double, result: Boolean) extends Operation
 
   case class PersonParameters(firstName: String, lastName: String, birthDate: String, passportHash: String)
