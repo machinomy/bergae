@@ -167,8 +167,7 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
   }
 
   def append(uuid: UUID, operation: Storage.Operation): Unit = {
-    val string = operation.asJson.noSpaces
-    append(uuid, string)
+    storage.append(uuid, operation)
   }
 
   def ifVerified(signed: Signed)(handle: Signed => Unit): Unit = {
