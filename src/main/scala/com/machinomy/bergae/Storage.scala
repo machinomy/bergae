@@ -30,7 +30,7 @@ class Storage(configuration: Configuration)(implicit actorSystem: ActorSystem) {
         case person: AddPerson =>
           val field: String = SearchParameters(person.firstName, person.lastName, person.passportHash).asJson.noSpaces
           for {
-            _ <- client.hset("index", field, uuid.toString)
+            _ <- client.hset("index", field, ByteString.fromString(uuid.toString))
           } yield {
             append(uuid, operation.asJson.noSpaces)
             true
@@ -62,14 +62,14 @@ class Storage(configuration: Configuration)(implicit actorSystem: ActorSystem) {
       for {
         cursor <- client.hscan("index", 0, Some(10000000), Some(params.asJson.noSpaces))
       } yield {
-        cursor.data.values.lastOption.map(x => UUID.fromString(x.toString))
+        cursor.data.values.lastOption.map(x => UUID.fromString(x.utf8String))
       }
     Await.result(futureOpt, timeout)
   }
 
   def height: Long = {
-    val futureLong: Future[Long] = client.get("height").map { optString =>
-      val a: Option[Long] = Try(optString.toString.toLong).toOption
+    val futureLong: Future[Long] = client.get("height").map { (optString: Option[ByteString]) =>
+      val a: Option[Long] = Try(optString.map(_.utf8String.toLong)).toOption.flatten
       val b: Long = a.getOrElse(0L)
       b
     }
