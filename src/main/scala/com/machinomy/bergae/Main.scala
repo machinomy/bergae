@@ -49,7 +49,7 @@ class APIService(context: ServerContext) extends HttpService(context) {
         case cats.data.Xor.Right(parameters) =>
           val uuidOption = Main.storage.search(parameters)
           uuidOption match {
-            case Some(uuid) => Callback.successful(request.ok(s"""{"uuid": $uuid"""))
+            case Some(uuid) => Callback.successful(request.ok(s"""{"uuid": "$uuid"}"""))
             case None => Callback.successful(request.notFound("Fuck you, pidor"))
           }
 
