@@ -45,7 +45,7 @@ object Configuration {
     val redisPort = redis.getInt("port")
     val redisConfiguration = RedisConfiguration(redisHost, redisPort)
 
-    val httpConfiguration = Try(redis.getConfig("http")).toOption.map { httpConfiguration =>
+    val httpConfiguration = Try(config.getConfig("http")).toOption.map { httpConfiguration =>
       val httpName = httpConfiguration.getString("name")
       val httpPort = httpConfiguration.getInt("port")
       HttpConfiguration(httpName, httpPort)
