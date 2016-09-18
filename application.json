@@ -20,5 +20,10 @@
       "pub": "17Raz6cuDq9ksPvnVsVqqkSCEPab7KuTwUor9BtofsGDP2w8i7j",
       "priv": "KwFcNLA7XssWQX5KqVymJTU8QgUWHyPPH4NmAZbkxGowcUc5rHth"
     }
-  ]
+  ],
+  "redis": {
+    "host": "localhost",
+    "port": 6379
+  },
+  "secret": "3390aef85e537426e37b963cb23e2de6"
 }

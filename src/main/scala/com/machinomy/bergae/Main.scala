@@ -160,22 +160,12 @@ object Main extends App {
   case class Arguments(config: File = new File("./application.json"))
 
   implicit val system = ActorSystem("bergae")
-//  var configuration: Configuration = _
-//  var storage: Storage = _
 
   var node: ActorRef = _
 
-//  val parsedArgs = parse(args)
-//  parsedArgs foreach { arguments =>
-//    val props = Node.props(configuration, storage)
-//    configuration = Configuration load arguments.config
-//    storage = new Storage(configuration)
-//    node = system actorOf props
-//  }
-
   val configuration = parse(args) match {
     case Some(arguments) =>
-      Configuration load arguments.config
+      Configuration.load(arguments.config)
     case None =>
       Configuration.load()
   }
@@ -184,10 +174,11 @@ object Main extends App {
   val props = Node.props(configuration, storage)
   node = system actorOf props
 
-
-  implicit val io = colossus.IOSystem()
-  Server.start("api", 9000) {
-    worker => new APIInitializer(worker)
+  configuration.httpOpt.foreach { httpConfiguration =>
+    implicit val io = colossus.IOSystem()
+    Server.start(httpConfiguration.name, httpConfiguration.port) {
+      worker => new APIInitializer(worker)
+    }
   }
 
   def parse(args: Array[String]): Option[Arguments] = {

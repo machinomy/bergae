@@ -2,18 +2,26 @@ package com.machinomy.bergae
 
 import java.io.File
 
-import com.machinomy.bergae.Configuration.RedisConfiguration
+import com.machinomy.bergae.Configuration.{HttpConfiguration, RedisConfiguration}
 import com.machinomy.bergae.crypto.{Base58Check, ECKey, ECPub}
 import com.machinomy.xicity.Identifier
 import com.typesafe.config.{Config, ConfigFactory}
+import org.scalacheck.Prop.False
 
 import scala.collection.JavaConverters._
+import scala.util.Try
 
-case class Configuration(me: Configuration.Node, key: ECKey, seeds: Seq[Configuration.Node], redis: RedisConfiguration)
+case class Configuration(me: Configuration.Node,
+                         key: ECKey,
+                         seeds: Seq[Configuration.Node],
+                         redis: RedisConfiguration,
+                         httpOpt: Option[HttpConfiguration],
+                         secret: String)
 
 object Configuration {
   case class Node(xicity: Identifier, pub: ECPub)
   case class RedisConfiguration(host: String, port: Int)
+  case class HttpConfiguration(name: String, port: Int)
 
   def load(): Configuration = load(ConfigFactory.load())
 
@@ -36,6 +44,14 @@ object Configuration {
     val redisHost = redis.getString("host")
     val redisPort = redis.getInt("port")
     val redisConfiguration = RedisConfiguration(redisHost, redisPort)
-    Configuration(me, key, seeds, redisConfiguration)
+
+    val httpConfiguration = Try(config.getConfig("http")).toOption.map { httpConfiguration =>
+      val httpName = httpConfiguration.getString("name")
+      val httpPort = httpConfiguration.getInt("port")
+      HttpConfiguration(httpName, httpPort)
+    }
+
+    val secret = config.getString("secret")
+    Configuration(me, key, seeds, redisConfiguration, httpConfiguration, secret)
   }
 }

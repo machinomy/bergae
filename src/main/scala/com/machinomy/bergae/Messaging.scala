@@ -23,9 +23,9 @@ object Messaging {
     lazy val jsonString: String = toJsonString(this)
   }
 
-  def signed(payload: Payload, key: ECKey): Signed = {
+  def signed(crypto: Crypto, payload: Payload, key: ECKey): Signed = {
     val payloadBytes = payload.asJson.noSpaces.getBytes
-    val signature = EllipticCurve.sign(payloadBytes, key)
+    val signature = crypto.sign(payloadBytes, key)
     Signed(payload, key.pub, signature)
   }
 
