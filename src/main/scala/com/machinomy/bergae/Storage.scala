@@ -97,7 +97,7 @@ class Storage(configuration: Configuration)(implicit actorSystem: ActorSystem) {
     val future =
       for {
         members <- client.smembers("waiting")
-        a <- client.srem("waiting", members)
+        a <- client.srem("waiting", members.map(_.utf8String))
       } yield a
     Await.ready(future, timeout)
   }
