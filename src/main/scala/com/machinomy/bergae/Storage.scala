@@ -5,7 +5,7 @@ import java.util.UUID
 
 import akka.actor.{ActorContext, ActorRefFactory, ActorSystem}
 import akka.util.ByteString
-import com.machinomy.bergae.crypto.{ECPub, Hex, Sha256Hash}
+import com.machinomy.bergae.crypto.{Digest, ECPub, Hex, Sha256Hash}
 import redis.{Cursor, RedisClient}
 import io.circe._
 import io.circe.generic.JsonCodec
@@ -82,22 +82,26 @@ class Storage(configuration: Configuration)(implicit actorSystem: ActorSystem) {
     Await.result(future, timeout)
   }
 
-  def accepted(hash: Sha256Hash): Set[ECPub] = {
-    val key = acceptKey(hash)
+  def accepted(txid: Sha256Hash): Set[ECPub] = {
+    val key = acceptKey(txid)
     val future =
       for {
         members <- client.smembers(key)
       } yield {
         members.map { byteString =>
-          ECPub.apply(byteString.toArray)
+          val string = byteString.utf8String
+          val bytes = Hex.decode(string)
+          ECPub.apply(bytes)
         }
       }
     Await.result(future, timeout).toSet
   }
 
-  def accept(hash: Sha256Hash, pub: ECPub): Unit = {
-    val key = acceptKey(hash)
-    val hexEncoded: String = Hex.encode(pub.toByteArray)
+  def accept(txid: Sha256Hash, pub: ECPub): Unit = {
+    val key = acceptKey(txid)
+    val bytes = pub.toByteArray
+    val hexEncoded: String = Hex.encode(bytes)
+    println(s"ACCEPT: $key -> $hexEncoded")
     val a = client.sadd(key, hexEncoded)
     Await.ready(a, timeout)
   }
@@ -107,17 +111,29 @@ class Storage(configuration: Configuration)(implicit actorSystem: ActorSystem) {
     s"accepted:$hashString"
   }
 
-  def mapOperation(payloadId: Sha256Hash, txid: Sha256Hash): Unit = {
-    val hex = Hex.encode(payloadId.bytes)
-    val key = s"mapPayload:$hex"
+  def mapOperation(operationHash: Sha256Hash, txid: Sha256Hash): Unit = {
+    val hex = Hex.encode(operationHash.bytes)
+    val key = s"mapOperation:$hex"
     val txidString = Hex.encode(txid.bytes)
     val f = client.set(key, txidString)
     Await.ready(f, timeout)
   }
 
-  def approvals(payloadId: Sha256Hash): Int = {
-    val hex = Hex.encode(payloadId.bytes)
-    val key = s"mapPayload:$hex"
+  def mapOperation(operation: Operation, txid: Sha256Hash): Unit = {
+    val operationJson = operation.asJson.noSpaces
+    val operationHash = Digest[Sha256Hash](operationJson)
+    mapOperation(operationHash, txid)
+  }
+
+  def approvals(operation: Operation): Int = {
+    val operationJson = operation.asJson.noSpaces
+    val operationHash = Digest[Sha256Hash](operationJson)
+    approvals(operationHash)
+  }
+
+  def approvals(operationHash: Sha256Hash): Int = {
+    val hex = Hex.encode(operationHash.bytes)
+    val key = s"mapOperation:$hex"
     val future =
       for {
         txidOpt <- client.get(key)

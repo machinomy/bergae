@@ -65,7 +65,12 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
             case msg @ Messaging.Nop(i, approve) =>
               accept(signed.txid, signed.pub)
               accept(signed.txid, configuration.me.pub)
-              for (txid <- approve) accept(txid, signed.pub)
+              for (txid <- approve) {
+                if (storage.accepted(txid).contains(configuration.me.pub) && storage.accepted(txid).size == 1) {
+                  waiting = waiting + txid
+                }
+                accept(txid, signed.pub)
+              }
               waiting = waiting + signed.txid
               log.info(s"Reached someone")
               if (i >= height) {
@@ -73,15 +78,22 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
                 log.info(s"Setting height to $height, as $i was received")
               } else {
                 log.info(s"Sending height $height as a response to Nop")
-                broadcast(Messaging.Nop(height, Set(signed.txid)))
+                broadcast(Messaging.Nop(height, waiting + signed.txid))
+                waiting = Set.empty[Sha256Hash]
               }
             case msg @ Messaging.Update(time, uuid, operation, approve) =>
               if (time >= height) {
                 height = time + 1
               }
               accept(signed.txid, signed.pub)
-              accept(signed.txid, configuration.me.pub) // @fixme
-              for (txid <- approve) accept(txid, signed.pub)
+              accept(signed.txid, configuration.me.pub)
+              mapOperation(operation, signed.txid)
+              for (txid <- approve) {
+                if (storage.accepted(txid).contains(configuration.me.pub) && storage.accepted(txid).size == 1) {
+                  waiting = waiting + txid
+                }
+                accept(txid, signed.pub)
+              }
               waiting = waiting + signed.txid
               log.info(s"Got update: $uuid: $operation")
               append(uuid, operation)
@@ -114,6 +126,12 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
   def broadcast(payload: Messaging.Payload): Unit = {
     val signed = Messaging.signed(crypto, payload, configuration.key)
     accept(signed.txid, configuration.me.pub)
+    payload match {
+      case m: Messaging.Update =>
+        mapOperation(m.operation, signed.txid)
+        log.info(s"PUBLISHING ${m.operation}")
+      case _ =>
+    }
     broadcast(signed.jsonString)
     resetAfterSendTicker()
     if (afterReceiveTicker.isDefined) {
@@ -134,6 +152,10 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
 
   def accept(txid: Sha256Hash, pub: ECPub): Unit = {
     storage.accept(txid, pub)
+  }
+
+  def mapOperation(operation: Storage.Operation, txid: Sha256Hash): Unit = {
+    storage.mapOperation(operation, txid)
   }
 
   def mapOperation(operationId: Sha256Hash, txid: Sha256Hash): Unit = {

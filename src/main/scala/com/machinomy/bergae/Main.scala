@@ -23,13 +23,13 @@ object Answers {
   @JsonCodec
   sealed trait Answer
   case class CreditHistory(uuid: UUID, credits: Array[Credit]) extends Answer
-  case class Credit(amount: Double, percentage: Double, time: String, date: String, uuid: String, payments: Array[Payment], status: String, closeDate: Option[String] = None) extends Answer
-  case class Payment(amount: Double, date: String, creditUUID: String) extends Answer
+  case class Credit(amount: Double, percentage: Double, time: String, date: String, uuid: String, payments: Array[Payment], status: String, approved: Boolean = false, closeDate: Option[String] = None) extends Answer
+  case class Payment(amount: Double, date: String, creditUUID: String, approved: Boolean = false) extends Answer
 
   object Answer
 }
 
-class APIService(context: ServerContext, node: ActorRef)(implicit ec: ExecutionContext) extends HttpService(context) {
+class APIService(context: ServerContext, node: ActorRef, storage: Storage, configuration: Configuration)(implicit ec: ExecutionContext) extends HttpService(context) {
 
   case class GettingParameters(uuid: String)
 
@@ -94,7 +94,8 @@ class APIService(context: ServerContext, node: ActorRef)(implicit ec: ExecutionC
         case cats.data.Xor.Right(params) =>
           val newUUID = UUID.randomUUID()
           val addCreditOperation = AddCredit(params.credit.amount, params.credit.percentage, params.credit.time, params.credit.date, newUUID.toString)
-          node ! Node.Update(newUUID, addCreditOperation)
+          val creditUuid = UUID.fromString(params.uuid)
+          node ! Node.Update(creditUuid, addCreditOperation)
           Callback.successful(request.ok(s"""{"creditUUID":"$newUUID"}"""))
       }
 
@@ -136,12 +137,20 @@ class APIService(context: ServerContext, node: ActorRef)(implicit ec: ExecutionC
       }
   }
 
+  def isApproved(operation: Operation): Boolean = {
+    val approvals = storage.approvals(operation)
+    println(s"APPROVALSAPPROVALSAPPROVALSAPPROVALSAPPROVALSAPPROVALSAPPROVALSAPPROVALSAPPROVALSAPPROVALSAPPROVALS")
+    println(approvals)
+    val keys = configuration.seeds.size
+    approvals == keys
+  }
+
   def generateStructure(operations: Seq[Operation], accumulator: Answers.CreditHistory): Answers.CreditHistory = {
     operations.headOption match {
       case Some(op) =>
         op match {
           case addCredit: AddCredit =>
-            val credit = Answers.Credit(addCredit.amount, addCredit.percentage, addCredit.time, addCredit.date, addCredit.uuid, Array.empty[Answers.Payment], "opened")
+            val credit = Answers.Credit(addCredit.amount, addCredit.percentage, addCredit.time, addCredit.date, addCredit.uuid, Array.empty[Answers.Payment], "opened", isApproved(addCredit))
             val nextCredits = accumulator.credits :+ credit
             val next = accumulator.copy(credits = nextCredits)
             generateStructure(operations.tail, next)
@@ -169,8 +178,8 @@ class APIService(context: ServerContext, node: ActorRef)(implicit ec: ExecutionC
   }
 }
 
-class APIInitializer(worker: WorkerRef, node: ActorRef)(implicit ec: ExecutionContext) extends Initializer(worker) {
-  def onConnect = context => new APIService(context, node)
+class APIInitializer(worker: WorkerRef, node: ActorRef, storage: Storage, configuration: Configuration)(implicit ec: ExecutionContext) extends Initializer(worker) {
+  def onConnect = context => new APIService(context, node, storage, configuration)
 }
 
 object Main extends App {
@@ -194,7 +203,7 @@ object Main extends App {
   configuration.httpOpt.foreach { httpConfiguration =>
     implicit val io = colossus.IOSystem()
     Server.start(httpConfiguration.name, httpConfiguration.port) {
-      worker => new APIInitializer(worker, node)(system.dispatcher)
+      worker => new APIInitializer(worker, node, storage, configuration)(system.dispatcher)
     }
   }
 
