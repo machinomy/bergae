@@ -7,7 +7,7 @@ import cats.data.Xor
 import com.machinomy.xicity.mac.{Message, Parameters}
 import com.machinomy.xicity.network.{FullNode, Peer, PeerBase}
 import com.github.nscala_time.time.Imports._
-import com.machinomy.bergae.Messaging.Signed
+import com.machinomy.bergae.Messaging.{Payload, Signed}
 import com.machinomy.bergae.crypto.{ECPub, Sha256Hash}
 import io.circe._
 import io.circe.generic.auto._
@@ -134,6 +134,10 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
 
   def accept(txid: Sha256Hash, pub: ECPub): Unit = {
     storage.accept(txid, pub)
+  }
+
+  def mapOperation(operationId: Sha256Hash, txid: Sha256Hash): Unit = {
+    storage.mapOperation(operationId, txid)
   }
 
   def append(uuid: UUID, string: String): Unit = {

@@ -107,6 +107,34 @@ class Storage(configuration: Configuration)(implicit actorSystem: ActorSystem) {
     s"accepted:$hashString"
   }
 
+  def mapOperation(payloadId: Sha256Hash, txid: Sha256Hash): Unit = {
+    val hex = Hex.encode(payloadId.bytes)
+    val key = s"mapPayload:$hex"
+    val txidString = Hex.encode(txid.bytes)
+    val f = client.set(key, txidString)
+    Await.ready(f, timeout)
+  }
+
+  def approvals(payloadId: Sha256Hash): Int = {
+    val hex = Hex.encode(payloadId.bytes)
+    val key = s"mapPayload:$hex"
+    val future =
+      for {
+        txidOpt <- client.get(key)
+      } yield {
+        txidOpt match {
+          case Some(txidBS) =>
+            val txid = txidBS.utf8String
+            val unhex: Seq[Byte] = Hex.decode(txid)
+            val sha256Hash = Sha256Hash(unhex.toArray)
+            accepted(sha256Hash).size
+          case None => 0
+        }
+      }
+    Await.result(future, timeout)
+  }
+
+
   def storageKey(uuid: UUID): String = s"storage:$uuid"
 }
 
