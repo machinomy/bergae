@@ -1,41 +1,37 @@
-package com.machinomy.bergae
+package com.machinomy.bergae.storage
 
-import java.awt.print.Book
 import java.util.UUID
 
-import akka.actor.{ActorContext, ActorRefFactory, ActorSystem}
-import akka.util.ByteString
 import com.machinomy.bergae.crypto.{Digest, ECPub, Hex, Sha256Hash}
-import redis.{Cursor, RedisClient}
-import io.circe._
-import io.circe.generic.JsonCodec
+import akka.util.ByteString
+import com.machinomy.bergae.configuration.RedisConfiguration
 import io.circe.generic.auto._
 import io.circe.parser
 import io.circe.syntax._
+import redis.RedisClient
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 import scala.util.Try
 
-class Storage(configuration: Configuration)(implicit actorSystem: ActorSystem) {
+class RedisStorage(configuration: RedisConfiguration) extends Storage {
   import Storage._
-  import actorSystem._
 
   //val client = new RedisClient(configuration.redis.host, configuration.redis.port)
-  val client = RedisClient(configuration.redis.host, configuration.redis.port)
+  val client = RedisClient(configuration.host, configuration.port)
   val timeout = 5.seconds
 
   def append(uuid: UUID, operation: Operation): Unit = {
     val future: Future[Boolean] =
       operation match {
-        case person: AddPerson =>
-          val field: String = SearchParameters(person.firstName, person.lastName, person.passportHash).asJson.noSpaces
-          for {
-            _ <- client.hset("index", field, ByteString.fromString(uuid.toString))
-          } yield {
-            append(uuid, operation.asJson.noSpaces)
-            true
-          }
+        //        case person: AddPerson =>
+        //          val field: String = SearchParameters(person.firstName, person.lastName, person.passportHash).asJson.noSpaces
+        //          for {
+        //            _ <- client.hset("index", field, ByteString.fromString(uuid.toString))
+        //          } yield {
+        //            append(uuid, operation.asJson.noSpaces)
+        //            true
+        //          }
         case _ =>
           append(uuid, operation.asJson.noSpaces)
           Future.successful(true)
@@ -43,7 +39,7 @@ class Storage(configuration: Configuration)(implicit actorSystem: ActorSystem) {
     Await.ready(future, timeout)
   }
 
-  def append(uuid: UUID, string: String): Unit = {
+  private def append(uuid: UUID, string: String): Unit = {
     val r: Future[Long] = client.rpush(storageKey(uuid), string)
     Await.ready(r, timeout)
   }
@@ -58,15 +54,15 @@ class Storage(configuration: Configuration)(implicit actorSystem: ActorSystem) {
     }
   }
 
-  def search(params: SearchParameters): Option[UUID] = {
-    val futureOpt =
-      for {
-        cursor <- client.hscan("index", 0, Some(10000000), Some(params.asJson.noSpaces))
-      } yield {
-        cursor.data.values.lastOption.map(x => UUID.fromString(x.utf8String))
-      }
-    Await.result(futureOpt, timeout)
-  }
+  //  def search(params: SearchParameters): Option[UUID] = {
+  //    val futureOpt =
+  //      for {
+  //        cursor <- client.hscan("index", 0, Some(10000000), Some(params.asJson.noSpaces))
+  //      } yield {
+  //        cursor.data.values.lastOption.map(x => UUID.fromString(x.utf8String))
+  //      }
+  //    Await.result(futureOpt, timeout)
+  //  }
 
   def height: Long = {
     val futureLong: Future[Long] = client.get("height").map { (optString: Option[ByteString]) =>
@@ -106,7 +102,7 @@ class Storage(configuration: Configuration)(implicit actorSystem: ActorSystem) {
     Await.ready(a, timeout)
   }
 
-  def acceptKey(hash: Sha256Hash): String = {
+  private def acceptKey(hash: Sha256Hash): String = {
     val hashString = Hex.encode(hash.bytes)
     s"accepted:$hashString"
   }
@@ -131,7 +127,7 @@ class Storage(configuration: Configuration)(implicit actorSystem: ActorSystem) {
     approvals(operationHash)
   }
 
-  def approvals(operationHash: Sha256Hash): Int = {
+  private def approvals(operationHash: Sha256Hash): Int = {
     val hex = Hex.encode(operationHash.bytes)
     val key = s"mapOperation:$hex"
     val future =
@@ -152,21 +148,4 @@ class Storage(configuration: Configuration)(implicit actorSystem: ActorSystem) {
 
 
   def storageKey(uuid: UUID): String = s"storage:$uuid"
-}
-
-object Storage {
-  @JsonCodec
-  sealed trait Operation
-  case class AddPerson(firstName: String, lastName: String, birthDate: String, passportHash: String) extends Operation
-
-  case class AddCredit(amount: Double, percentage: Double, time: String, date: String, uuid: String) extends Operation
-  case class AddPayment(amount: Double, date: String, creditUUID: UUID) extends Operation
-  case class CloseCredit(date: String, creditUUID: String) extends Operation
-
-  case class MakeCheck(amount: Double, days: Int, percentage: Double, result: Boolean) extends Operation
-
-  case class PersonParameters(firstName: String, lastName: String, birthDate: String, passportHash: String)
-  case class SearchParameters(firstName: String, lastName: String, passportHash: String)
-
-  object Operation
 }

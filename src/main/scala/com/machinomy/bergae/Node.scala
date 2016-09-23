@@ -8,7 +8,9 @@ import com.machinomy.xicity.mac.{Message, Parameters}
 import com.machinomy.xicity.network.{FullNode, Peer, PeerBase}
 import com.github.nscala_time.time.Imports._
 import com.machinomy.bergae.Messaging.{Payload, Signed}
+import com.machinomy.bergae.configuration.NodeConfiguration
 import com.machinomy.bergae.crypto.{ECPub, Sha256Hash}
+import com.machinomy.bergae.storage.Storage
 import io.circe._
 import io.circe.generic.auto._
 import io.circe.parser
@@ -16,7 +18,7 @@ import io.circe.syntax._
 
 import scala.concurrent.duration._
 
-class Node(configuration: Configuration, storage: Storage) extends Actor with ActorLogging {
+private[bergae] class Node(configuration: NodeConfiguration, storage: Storage) extends Actor with ActorLogging {
   import context._
 
   val expirationTimeout = 2000
@@ -162,10 +164,6 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
     storage.mapOperation(operationId, txid)
   }
 
-  def append(uuid: UUID, string: String): Unit = {
-    storage.append(uuid, string)
-  }
-
   def append(uuid: UUID, operation: Storage.Operation): Unit = {
     storage.append(uuid, operation)
   }
@@ -186,7 +184,7 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
 }
 
 object Node {
-  def props(configuration: Configuration, storage: Storage) = Props(classOf[Node], configuration, storage)
+  def props(configuration: NodeConfiguration, storage: Storage) = Props(classOf[Node], configuration, storage)
 
   sealed trait Msg
   case object Nop extends Msg
