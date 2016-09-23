@@ -4,15 +4,14 @@ import com.typesafe.config.Config
 
 trait StorageConfiguration
 
-case class RedisConfiguration(host: String, port: Int) extends StorageConfiguration
+case class RedisStorageConfiguration(host: String, port: Int) extends StorageConfiguration
 
-object RedisConfiguration {
+object RedisStorageConfiguration {
 
-  def apply(config: Config): RedisConfiguration = {
-    val redis = config.getConfig("redis")
-    val redisHost = redis.getString("host")
-    val redisPort = redis.getInt("port")
-    new RedisConfiguration(redisHost, redisPort)
+  def apply(config: Config): RedisStorageConfiguration = {
+    val redisHost = config.getString("host")
+    val redisPort = config.getInt("port")
+    new RedisStorageConfiguration(redisHost, redisPort)
   }
 
 }
