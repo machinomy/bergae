@@ -3,8 +3,11 @@ package com.machinomy.bergae.storage
 import java.util.UUID
 
 import com.machinomy.bergae.crypto.{ECPub, Sha256Hash}
+import io.circe._
 import io.circe.generic.JsonCodec
-
+import io.circe.generic.auto._
+import io.circe.parser
+import io.circe.syntax._
 import scala.concurrent.Future
 
 trait Storage {
@@ -31,6 +34,8 @@ trait Storage {
 object Storage {
   @JsonCodec
   sealed trait Operation
+
+  case class SimpleMessage(msg: String) extends Operation
 
   object Operation
 }
