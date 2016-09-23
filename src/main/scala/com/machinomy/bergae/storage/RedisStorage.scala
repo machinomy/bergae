@@ -3,6 +3,7 @@ package com.machinomy.bergae.storage
 import java.util.UUID
 
 import com.machinomy.bergae.crypto.{Digest, ECPub, Hex, Sha256Hash}
+import akka.actor.ActorSystem
 import akka.util.ByteString
 import com.machinomy.bergae.configuration.RedisConfiguration
 import io.circe.generic.auto._
@@ -14,8 +15,9 @@ import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 import scala.util.Try
 
-class RedisStorage(configuration: RedisConfiguration) extends Storage {
+class RedisStorage(configuration: RedisConfiguration)(implicit actorSystem: ActorSystem) extends Storage {
   import Storage._
+  import actorSystem._
 
   //val client = new RedisClient(configuration.redis.host, configuration.redis.port)
   val client = RedisClient(configuration.host, configuration.port)
