@@ -1,10 +1,12 @@
 addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
 
+import sbtrelease.ReleaseStateTransformations._
+
 name := "bergae"
 
 organization := "com.machinomy"
 
-version := "0.0.1-SNAPSHOT"
+version := "0.0.2-SNAPSHOT"
 
 mainClass := Some("com.machinomy.bergae.Main")
 
@@ -32,3 +34,29 @@ libraryDependencies ++= Seq(
   "io.circe" %% "circe-generic",
   "io.circe" %% "circe-parser"
 ).map(_ % circeVersion)
+
+releaseUseGlobalVersion := false
+
+def whenRelease(releaseStep: ReleaseStep): ReleaseStep =
+  releaseStep.copy(state => if (Project.extract(state).get(isSnapshot)) state else releaseStep.action(state))
+
+releaseProcess := Seq[ReleaseStep](
+  checkSnapshotDependencies,
+  runClean,
+//  runTest,
+//  whenRelease(tagRelease),
+  publishArtifacts
+//  whenRelease(pushChanges)
+)
+
+publishTo := {
+  val base = "http://artifactory.machinomy.com/artifactory"
+  if (isSnapshot.value) {
+    val timestamp = new java.util.Date().getTime
+    Some("Machinomy" at s"$base/snapshot;build.timestamp=$timestamp")
+  } else {
+    Some("Machinomy" at s"$base/release")
+  }
+}
+
+credentials += Credentials(new File("credentials.properties"))

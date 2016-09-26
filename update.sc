@@ -2,9 +2,9 @@ import java.io.File
 import java.util.UUID
 
 import akka.actor.ActorSystem
-import com.machinomy.bergae.{Configuration, Main, Messaging, Node}
+import com.machinomy.bergae.{Configuration, Bergae, Messaging, Node}
 
-val arguments = Main.Arguments(new File("b.json"))
+val arguments = Bergae.Arguments(new File("b.json"))
 val configuration = Configuration load arguments.config
 val system = ActorSystem("bergae")
 val props = Node props configuration

@@ -4,13 +4,14 @@ import java.util.UUID
 
 import cats.data.Xor
 import com.machinomy.bergae.crypto._
+import com.machinomy.bergae.storage.Storage
 import io.circe._
 import io.circe.generic.JsonCodec
 import io.circe.syntax._
 
 import scala.util.Try
 
-object Messaging {
+private[bergae] object Messaging {
   @JsonCodec
   sealed trait Payload
   case class Nop(height: Long, approve: Set[Sha256Hash] = Set.empty[Sha256Hash]) extends Payload

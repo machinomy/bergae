@@ -1,8 +1,9 @@
 package com.machinomy.bergae
 
+import com.machinomy.bergae.configuration.NodeConfiguration
 import com.machinomy.bergae.crypto._
 
-class Crypto(configuration: Configuration) {
+private[bergae] class Crypto(configuration: NodeConfiguration) {
   val secret: Array[Byte] = configuration.secret.getBytes
 
   def sign(message: Seq[Byte], key: ECKey)(implicit digest: Digest[Sha256Hash]): ECSignature = {
