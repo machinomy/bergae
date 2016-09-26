@@ -29,6 +29,8 @@ trait Storage {
   def mapOperation(operation: Storage.Operation, txid: Sha256Hash): Unit
 
   def approvals(operation: Storage.Operation): Int
+
+  def all(): Future[Seq[UUID]]
 }
 
 object Storage {
