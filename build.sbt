@@ -17,7 +17,7 @@ resolvers ++= Seq(
 
 libraryDependencies ++= Seq(
   "com.machinomy" %% "crdt" % "0.0.3",
-  "com.machinomy" %% "xicity" % "0.0.6-SNAPSHOT",
+  "com.machinomy" %% "xicity" % "0.0.6",
   "com.github.scopt" %% "scopt" % "3.5.0",
   "org.bouncycastle" % "bcprov-jdk15on" % "1.55",
   "com.typesafe" % "config" % "1.3.0",
