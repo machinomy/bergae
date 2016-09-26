@@ -8,8 +8,6 @@ organization := "com.machinomy"
 
 version := "0.0.2-SNAPSHOT"
 
-mainClass := Some("com.machinomy.bergae.Main")
-
 scalaVersion := "2.11.8"
 
 resolvers ++= Seq(
@@ -43,10 +41,10 @@ def whenRelease(releaseStep: ReleaseStep): ReleaseStep =
 releaseProcess := Seq[ReleaseStep](
   checkSnapshotDependencies,
   runClean,
-//  runTest,
-//  whenRelease(tagRelease),
-  publishArtifacts
-//  whenRelease(pushChanges)
+  runTest,
+  whenRelease(tagRelease),
+  publishArtifacts,
+  whenRelease(pushChanges)
 )
 
 publishTo := {
