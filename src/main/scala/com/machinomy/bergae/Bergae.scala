@@ -7,8 +7,8 @@ import com.machinomy.bergae.storage.Storage
 
 object Bergae {
 
-  def node[T <: Storage.Operation](configuration: NodeConfiguration, storage: Storage, system: ActorSystem): ActorRef = {
-    val props = Node.props(configuration, storage)
+  def node[T <: Storage.Operation](configuration: NodeConfiguration, storage: Storage[T], system: ActorSystem): ActorRef = {
+    val props = Node.props[T](configuration, storage)
     system actorOf props
   }
 
