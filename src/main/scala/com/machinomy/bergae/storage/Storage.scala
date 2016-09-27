@@ -36,9 +36,9 @@ trait Storage[T <: Storage.Operation] {
 object Storage {
   trait Operation
 
-  trait Serializable {
-    def serialize[T](operation: T): String
-    def deserialize[T](str: String): T
+  trait Serializable[T] {
+    def serialize(operation: T): String
+    def deserialize(str: String): T
   }
 
 }

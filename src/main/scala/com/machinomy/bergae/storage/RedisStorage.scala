@@ -15,7 +15,7 @@ import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 import scala.util.Try
 
-class RedisStorage[T <: Storage.Operation](configuration: RedisStorageConfiguration)(implicit actorSystem: ActorSystem, implicit val serializer: Storage.Serializable) extends Storage[T] {
+class RedisStorage[T <: Storage.Operation](configuration: RedisStorageConfiguration)(implicit actorSystem: ActorSystem, implicit val serializer: Storage.Serializable[T]) extends Storage[T] {
   import actorSystem._
 
   //val client = new RedisClient(configuration.redis.host, configuration.redis.port)
@@ -34,7 +34,7 @@ class RedisStorage[T <: Storage.Operation](configuration: RedisStorageConfigurat
         //            true
         //          }
         case _ =>
-          append(uuid, serializer.serialize[T](operation))
+          append(uuid, serializer.serialize(operation))
           Future.successful(true)
       }
     Await.ready(future, timeout)
@@ -50,7 +50,7 @@ class RedisStorage[T <: Storage.Operation](configuration: RedisStorageConfigurat
       lrange <- client.lrange(storageKey(uuid), 0, -1)
     } yield {
       lrange.flatMap { byteString =>
-        Option(serializer.deserialize[T](byteString.utf8String))
+        Option(serializer.deserialize(byteString.utf8String))
       }
     }
   }
@@ -122,7 +122,7 @@ class RedisStorage[T <: Storage.Operation](configuration: RedisStorageConfigurat
   }
 
   def approvals(operation: T): Int = {
-    val operationJson = serializer.serialize[T](operation)
+    val operationJson = serializer.serialize(operation)
     val operationHash = Digest[Sha256Hash](operationJson)
     approvals(operationHash)
   }
