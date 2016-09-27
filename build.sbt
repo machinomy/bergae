@@ -6,7 +6,7 @@ name := "bergae"
 
 organization := "com.machinomy"
 
-version := "0.0.2-SNAPSHOT"
+version := "0.0.3-SNAPSHOT"
 
 mainClass := Some("com.machinomy.bergae.Main")
 
