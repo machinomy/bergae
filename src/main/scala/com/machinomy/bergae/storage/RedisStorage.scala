@@ -55,6 +55,14 @@ class RedisStorage[T <: Storage.Operation](configuration: RedisStorageConfigurat
     }
   }
 
+  override def all(): Future[Seq[UUID]] = {
+    client.keys("storage:*").map { keys =>
+      keys.map { k =>
+        UUID.fromString(k.replaceAll("storage:", ""))
+      }
+    }
+  }
+
   //  def search(params: SearchParameters): Option[UUID] = {
   //    val futureOpt =
   //      for {

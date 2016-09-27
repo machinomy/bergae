@@ -31,6 +31,8 @@ trait Storage[T <: Storage.Operation] {
   def mapOperation(operation: String, txid: Sha256Hash): Unit
 
   def approvals(operation: T): Int
+
+  def all(): Future[Seq[UUID]]
 }
 
 object Storage {
