@@ -18,7 +18,7 @@ import io.circe.syntax._
 
 import scala.concurrent.duration._
 
-private[bergae] class Node(configuration: NodeConfiguration, storage: Storage) extends Actor with ActorLogging {
+private[bergae] class Node[T <: Storage.Operation](configuration: NodeConfiguration, storage: Storage[T]) extends Actor with ActorLogging {
   import context._
 
   val expirationTimeout = 2000
@@ -156,7 +156,7 @@ private[bergae] class Node(configuration: NodeConfiguration, storage: Storage) e
     storage.accept(txid, pub)
   }
 
-  def mapOperation(operation: Storage.Operation, txid: Sha256Hash): Unit = {
+  def mapOperation(operation: String, txid: Sha256Hash): Unit = {
     storage.mapOperation(operation, txid)
   }
 
@@ -164,7 +164,7 @@ private[bergae] class Node(configuration: NodeConfiguration, storage: Storage) e
     storage.mapOperation(operationId, txid)
   }
 
-  def append(uuid: UUID, operation: Storage.Operation): Unit = {
+  def append(uuid: UUID, operation: String): Unit = {
     storage.append(uuid, operation)
   }
 
@@ -184,9 +184,9 @@ private[bergae] class Node(configuration: NodeConfiguration, storage: Storage) e
 }
 
 object Node {
-  def props(configuration: NodeConfiguration, storage: Storage) = Props(classOf[Node], configuration, storage)
+  def props[T <: Storage.Operation](configuration: NodeConfiguration, storage: Storage[T]) = Props(classOf[Node[T]], configuration, storage)
 
   sealed trait Msg
   case object Nop extends Msg
-  case class Update(uuid: UUID, operation: Storage.Operation) extends Msg
+  case class Update(uuid: UUID, operation: String) extends Msg
 }

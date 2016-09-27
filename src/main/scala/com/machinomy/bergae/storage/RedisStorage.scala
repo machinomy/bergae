@@ -15,15 +15,14 @@ import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 import scala.util.Try
 
-class RedisStorage(configuration: RedisStorageConfiguration)(implicit actorSystem: ActorSystem) extends Storage {
-  import Storage._
+class RedisStorage[T <: Storage.Operation](configuration: RedisStorageConfiguration)(implicit actorSystem: ActorSystem, implicit val serializer: Storage.Serializable[T]) extends Storage[T] {
   import actorSystem._
 
   //val client = new RedisClient(configuration.redis.host, configuration.redis.port)
   val client = RedisClient(configuration.host, configuration.port)
   val timeout = 5.seconds
 
-  def append(uuid: UUID, operation: Operation): Unit = {
+  def append(uuid: UUID, operation: T): Unit = {
     val future: Future[Boolean] =
       operation match {
         //        case person: AddPerson =>
@@ -35,23 +34,23 @@ class RedisStorage(configuration: RedisStorageConfiguration)(implicit actorSyste
         //            true
         //          }
         case _ =>
-          append(uuid, operation.asJson.noSpaces)
+          append(uuid, serializer.serialize(operation))
           Future.successful(true)
       }
     Await.ready(future, timeout)
   }
 
-  private def append(uuid: UUID, string: String): Unit = {
-    val r: Future[Long] = client.rpush(storageKey(uuid), string)
+  def append(uuid: UUID, operation: String): Unit = {
+    val r: Future[Long] = client.rpush(storageKey(uuid), operation)
     Await.ready(r, timeout)
   }
 
-  def get(uuid: UUID): Future[Seq[Operation]] = {
+  def get(uuid: UUID): Future[Seq[T]] = {
     for {
       lrange <- client.lrange(storageKey(uuid), 0, -1)
     } yield {
       lrange.flatMap { byteString =>
-        parser.decode[Operation](byteString.utf8String).toOption
+        Option(serializer.deserialize(byteString.utf8String))
       }
     }
   }
@@ -125,14 +124,13 @@ class RedisStorage(configuration: RedisStorageConfiguration)(implicit actorSyste
     Await.ready(f, timeout)
   }
 
-  def mapOperation(operation: Operation, txid: Sha256Hash): Unit = {
-    val operationJson = operation.asJson.noSpaces
-    val operationHash = Digest[Sha256Hash](operationJson)
+  def mapOperation(operation: String, txid: Sha256Hash): Unit = {
+    val operationHash = Digest[Sha256Hash](operation)
     mapOperation(operationHash, txid)
   }
 
-  def approvals(operation: Operation): Int = {
-    val operationJson = operation.asJson.noSpaces
+  def approvals(operation: T): Int = {
+    val operationJson = serializer.serialize(operation)
     val operationHash = Digest[Sha256Hash](operationJson)
     approvals(operationHash)
   }
@@ -155,7 +153,6 @@ class RedisStorage(configuration: RedisStorageConfiguration)(implicit actorSyste
       }
     Await.result(future, timeout)
   }
-
 
   def storageKey(uuid: UUID): String = s"storage:$uuid"
 }
