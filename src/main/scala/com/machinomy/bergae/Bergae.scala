@@ -7,7 +7,7 @@ import com.machinomy.bergae.storage.Storage
 
 object Bergae {
 
-  def node(configuration: NodeConfiguration, storage: Storage): ActorRef = {
+  def node[T <: Storage.Operation](configuration: NodeConfiguration, storage: Storage[T]): ActorRef = {
 
     implicit val system = ActorSystem("bergae")
 

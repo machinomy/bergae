@@ -15,7 +15,7 @@ private[bergae] object Messaging {
   @JsonCodec
   sealed trait Payload
   case class Nop(height: Long, approve: Set[Sha256Hash] = Set.empty[Sha256Hash]) extends Payload
-  case class Update(height: Long, uuid: UUID, operation: Storage.Operation, approve: Set[Sha256Hash] = Set.empty[Sha256Hash]) extends Payload
+  case class Update(height: Long, uuid: UUID, operation: String, approve: Set[Sha256Hash] = Set.empty[Sha256Hash]) extends Payload
 
   object Payload
 

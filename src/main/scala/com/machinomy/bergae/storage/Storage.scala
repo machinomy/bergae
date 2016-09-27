@@ -10,11 +10,13 @@ import io.circe.parser
 import io.circe.syntax._
 import scala.concurrent.Future
 
-trait Storage {
+trait Storage[T <: Storage.Operation] {
 
-  def append(uuid: UUID, operation: Storage.Operation): Unit
+  def append(uuid: UUID, operation: T): Unit
 
-  def get(uuid: UUID): Future[Seq[Storage.Operation]]
+  def append(uuid: UUID, operation: String): Unit
+
+  def get(uuid: UUID): Future[Seq[T]]
 
   def height: Long
 
@@ -26,16 +28,17 @@ trait Storage {
 
   def mapOperation(operationHash: Sha256Hash, txid: Sha256Hash): Unit
 
-  def mapOperation(operation: Storage.Operation, txid: Sha256Hash): Unit
+  def mapOperation(operation: String, txid: Sha256Hash): Unit
 
-  def approvals(operation: Storage.Operation): Int
+  def approvals(operation: T): Int
 }
 
 object Storage {
-  @JsonCodec
-  sealed trait Operation
+  trait Operation
 
-  case class SimpleMessage(msg: String) extends Operation
+  trait Serializable {
+    def serialize[T](operation: T): String
+    def deserialize[T](str: String): T
+  }
 
-  object Operation
 }
