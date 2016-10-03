@@ -1,10 +1,12 @@
 package com.machinomy.bergae
 
+import java.nio.charset.StandardCharsets
+
 import com.machinomy.bergae.configuration.NodeConfiguration
 import com.machinomy.bergae.crypto._
 
 private[bergae] class Crypto(configuration: NodeConfiguration) {
-  val secret: Array[Byte] = configuration.secret.getBytes
+  val secret: Array[Byte] = configuration.secret.getBytes(StandardCharsets.UTF_8)
 
   def sign(message: Seq[Byte], key: ECKey)(implicit digest: Digest[Sha256Hash]): ECSignature = {
     val fullMessage = message ++ secret

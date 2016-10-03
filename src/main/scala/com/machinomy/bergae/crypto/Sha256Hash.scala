@@ -1,5 +1,7 @@
 package com.machinomy.bergae.crypto
 
+import java.nio.charset.StandardCharsets
+
 import cats.Show
 import org.bouncycastle.crypto.digests.SHA256Digest
 
@@ -21,7 +23,7 @@ object Sha256Hash {
       Sha256Hash(out)
     }
 
-    override def apply(message: String): Sha256Hash = apply(message.getBytes)
+    override def apply(message: String): Sha256Hash = apply(message.getBytes(StandardCharsets.UTF_8))
   }
 
   implicit object ToBigInt extends ToBigInt[Sha256Hash] {

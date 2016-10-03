@@ -1,5 +1,6 @@
 package com.machinomy.bergae
 
+import java.nio.charset.StandardCharsets
 import java.util.UUID
 
 import cats.data.Xor
@@ -25,7 +26,7 @@ private[bergae] object Messaging {
   }
 
   def signed(crypto: Crypto, payload: Payload, key: ECKey): Signed = {
-    val payloadBytes = payload.asJson.noSpaces.getBytes
+    val payloadBytes = payload.asJson.noSpaces.getBytes(StandardCharsets.UTF_8)
     val signature = crypto.sign(payloadBytes, key)
     Signed(payload, key.pub, signature)
   }

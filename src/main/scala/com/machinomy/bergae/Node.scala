@@ -1,5 +1,6 @@
 package com.machinomy.bergae
 
+import java.nio.charset.StandardCharsets
 import java.util.UUID
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props}
@@ -123,7 +124,7 @@ private[bergae] class Node(configuration: NodeConfiguration, storage: Storage) e
     afterReceiveTicker = Some(context.system.scheduler.scheduleOnce(randomTimeout)(self ! Node.Nop))
   }
 
-  def broadcast(payload: String): Unit = broadcast(payload.getBytes)
+  def broadcast(payload: String): Unit = broadcast(payload.getBytes(StandardCharsets.UTF_8))
 
   def broadcast(payload: Messaging.Payload): Unit = {
     val signed = Messaging.signed(crypto, payload, configuration.key)
@@ -169,7 +170,7 @@ private[bergae] class Node(configuration: NodeConfiguration, storage: Storage) e
   }
 
   def ifVerified(signed: Signed)(handle: Signed => Unit): Unit = {
-    val payloadBytes = signed.payload.asJson.noSpaces.getBytes
+    val payloadBytes = signed.payload.asJson.noSpaces.getBytes(StandardCharsets.UTF_8)
     val verified = crypto.verify(payloadBytes, signed.signature, signed.pub)
     if (verified) {
       handle(signed)
