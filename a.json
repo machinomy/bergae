@@ -26,8 +26,8 @@
     "port": 6379
   },
   "http": {
-    "name": "api",
-    "port": 9001
+    "name": "localhost",
+    "port": 9000
   },
   "secret": "3390aef85e537426e37b963cb23e2de6"
 }

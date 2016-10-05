@@ -70,6 +70,7 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
                   waiting = waiting + txid
                 }
                 accept(txid, signed.pub)
+                storage.approveLink(signed.txid, txid)
               }
               waiting = waiting + signed.txid
               log.info(s"Reached someone")
@@ -93,6 +94,7 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
                   waiting = waiting + txid
                 }
                 accept(txid, signed.pub)
+                storage.approveLink(signed.txid, txid)
               }
               waiting = waiting + signed.txid
               log.info(s"Got update: $uuid: $operation")
@@ -129,6 +131,9 @@ class Node(configuration: Configuration, storage: Storage) extends Actor with Ac
     payload match {
       case m: Messaging.Update =>
         mapOperation(m.operation, signed.txid)
+        for (txid <- m.approve) {
+          storage.approveLink(signed.txid, txid)
+        }
         log.info(s"PUBLISHING ${m.operation}")
       case _ =>
     }

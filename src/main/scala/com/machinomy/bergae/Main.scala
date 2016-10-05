@@ -11,6 +11,7 @@ import protocols.http._
 import UrlParsing._
 import HttpMethod._
 import com.machinomy.bergae.Storage._
+import com.machinomy.bergae.crypto.Hex
 import io.circe._
 import io.circe.generic.JsonCodec
 import io.circe.generic.auto._
@@ -39,10 +40,41 @@ class APIService(context: ServerContext, node: ActorRef, storage: Storage, confi
   case class CloseCreditParameters(uuid: String, closeCredit: CloseCredit)
   case class NewPaymentsParameters(uuid: String, payment: AddPayment)
 
+  implicit object TwirlEncoder extends HttpBodyEncoder[play.twirl.api.Html] {
+    val ctype = HttpHeader("Content-Type", "text/html")
+    def encode(data: play.twirl.api.Html) : HttpBody = new HttpBody(data.toString.getBytes("UTF-8"), Some(ctype))
+  }
+
+  case class JSON(s: String)
+
+  implicit object JSONEncoder extends HttpBodyEncoder[JSON] {
+    val ctype = HttpHeader("Content-Type", "application/json")
+    def encode(data: JSON) : HttpBody = new HttpBody(data.s.getBytes("UTF-8"), Some(ctype))
+  }
+
   def handle: PartialFunction[HttpRequest, Callback[HttpResponse]] = {
     case request @ Get on Root =>
       println(request)
       Callback.successful(request.ok("Hello world"))
+
+    case request @ Get on Root / "graph.json" =>
+      var allTxids: Set[String] = Set.empty
+      val elements = storage.allApproveLinks().flatMap { txid =>
+        val hex = Hex.encode(txid.toByteArray)
+        allTxids += hex
+        storage.getApproveLinks(txid).map { linkTxid =>
+          val linkedTxid = Hex.encode(linkTxid.toByteArray)
+          allTxids += linkedTxid
+          s"""{"source": "$hex", "target": "$linkedTxid"}"""
+        }
+      }
+      val nodes = allTxids.map { txid => s"""{"id": "$txid"}"""}
+      val result = JSON(s"""{"links": [${elements.mkString(", ")}], "nodes": [${nodes.mkString(",")}]}""")
+      Callback.successful(request.ok(result))
+
+    case request @ Get on Root / "graph" =>
+      val templateString: play.twirl.api.Html = html.graph()
+      Callback.successful(request.ok(templateString))
 
     case request @ Post on Root / "persons" / "search" =>
       val paramsXor: cats.data.Xor[io.circe.Error, SearchParameters] = decode[SearchParameters](request.body.toString())
@@ -139,8 +171,6 @@ class APIService(context: ServerContext, node: ActorRef, storage: Storage, confi
 
   def isApproved(operation: Operation): Boolean = {
     val approvals = storage.approvals(operation)
-    println(s"APPROVALSAPPROVALSAPPROVALSAPPROVALSAPPROVALSAPPROVALSAPPROVALSAPPROVALSAPPROVALSAPPROVALSAPPROVALS")
-    println(approvals)
     val keys = configuration.seeds.size
     approvals == keys
   }

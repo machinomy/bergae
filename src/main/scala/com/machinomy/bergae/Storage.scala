@@ -111,9 +111,13 @@ class Storage(configuration: Configuration)(implicit actorSystem: ActorSystem) {
     s"accepted:$hashString"
   }
 
+  def mapTxid(txid: Sha256Hash, description: String): Unit = {
+
+  }
+
   def mapOperation(operationHash: Sha256Hash, txid: Sha256Hash): Unit = {
     val hex = Hex.encode(operationHash.bytes)
-    val key = s"mapOperation:$hex"
+    val key = s"operationToTxid:$hex"
     val txidString = Hex.encode(txid.bytes)
     val f = client.set(key, txidString)
     Await.ready(f, timeout)
@@ -125,6 +129,31 @@ class Storage(configuration: Configuration)(implicit actorSystem: ActorSystem) {
     mapOperation(operationHash, txid)
   }
 
+  def approveLink(point: Sha256Hash, txid: Sha256Hash): Unit = {
+    val hex = Hex.encode(point.toByteArray)
+    val key = s"approveLink:$hex"
+    val hextxid = ByteString(Hex.encode(txid.toByteArray))
+    Await.ready(client.sadd(key, hextxid), timeout)
+  }
+
+  def getApproveLinks(point: Sha256Hash): Seq[Sha256Hash] = {
+    val hex = Hex.encode(point.toByteArray)
+    val members = client.smembers(s"approveLink:$hex").map { members =>
+      members.map(m => Sha256Hash(Hex.decode(m.utf8String).toArray))
+    }
+    Await.result(members, timeout)
+  }
+
+  def allApproveLinks(): Seq[Sha256Hash] = {
+    val r = client.keys("approveLink:*").map { keys =>
+      keys.map { k =>
+        val hex = k.replaceAll("approveLink:", "")
+        Sha256Hash(Hex.decode(hex).toArray)
+      }
+    }
+    Await.result(r, timeout)
+  }
+
   def approvals(operation: Operation): Int = {
     val operationJson = operation.asJson.noSpaces
     val operationHash = Digest[Sha256Hash](operationJson)
@@ -133,7 +162,7 @@ class Storage(configuration: Configuration)(implicit actorSystem: ActorSystem) {
 
   def approvals(operationHash: Sha256Hash): Int = {
     val hex = Hex.encode(operationHash.bytes)
-    val key = s"mapOperation:$hex"
+    val key = s"operationToTxid:$hex"
     val future =
       for {
         txidOpt <- client.get(key)
