@@ -27,6 +27,8 @@ var svg = d3.select("svg"),
     width = +svg.attr("width"),
     height = +svg.attr("height");
 
+svg.append("svg:defs").selectAll("marker").data([ "end" ]).enter().append("svg:marker").attr("id", String).attr("viewBox", "0 -5 10 10").attr("refX", 15).attr("refY", -1.5).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("svg:path").attr("d", "M0,-5L10,0L0,5");
+
 var color = d3.scaleOrdinal(d3.schemeCategory20);
 
 var simulation = d3.forceSimulation()
@@ -48,7 +50,7 @@ var addGraph = function(graph) {
       .attr("class", "links")
     .selectAll("line")
     .data(graph.links)
-    .enter().append("line")
+    .enter().append("line").attr("marker-end", "url(#end)");
       //.attr("stroke-width", function(d) { return Math.sqrt(d.value); });
 
   var node = svg.append("g")
